@@ -9,7 +9,7 @@
   html,body{width:100%;height:100%;background:#000;overflow:hidden;}
   #gc{position:relative;width:100vw;height:100vh;}
   canvas{display:block;touch-action:none;outline:none;}
-  #startWrap{position:absolute;top:0;left:0;width:100%;height:calc(100% - 190px);display:flex;align-items:center;justify-content:center;pointer-events:none;}
+  #startWrap{position:absolute;top:0;left:0;width:100%;height:calc(100% - 190px);display:none;align-items:center;justify-content:center;pointer-events:none;}
   #startBox{font-family:'Courier New',monospace;color:#fff;text-align:center;}
   .tbtn{
     position:absolute;
@@ -30,9 +30,9 @@
   <canvas id="c" tabindex="0"></canvas>
   <div id="startWrap">
     <div id="startBox">
-      <div style="font-size:12px;color:#4488cc;letter-spacing:3px;margin-bottom:8px;">SOLAR NAVIGATION SYSTEM</div>
-      <div style="font-size:30px;font-weight:bold;letter-spacing:2px;margin-bottom:6px;">HELIOS ESCAPE</div>
-      <div style="font-size:11px;color:#556688;margin-bottom:22px;">Visit all planets &middot; Avoid debris &middot; Escape the system</div>
+      <div style="font-size:12px;color:#4488cc;letter-spacing:3px;margin-bottom:8px;">EMERGENCY RETURN PROTOCOL</div>
+      <div style="font-size:30px;font-weight:bold;letter-spacing:2px;margin-bottom:6px;">RETURN TO EARTH</div>
+      <div style="font-size:11px;color:#556688;margin-bottom:22px;">Stranded near Neptune &middot; Use gravity assists &middot; Come home</div>
       <div style="font-size:11px;color:#88aacc;line-height:2.3;">
         W / &uarr; &nbsp; THRUST &nbsp;&nbsp;&nbsp; S / &darr; &nbsp; RETRO-BURN (brake)<br>
         A / D / &larr; &rarr; &nbsp; ROTATE<br>
@@ -118,6 +118,8 @@ const PLANETS=[
 const ESCAPE_R=880, SUN_R=38;
 // GM_SUN=450 → 地球軌道(r=230)で初速vy=1.4が円軌道になるよう設定
 const GM_SUN=450;
+// 訪問順序: 海王星→天王星→土星→木星→火星→地球
+const journey=[7,6,5,4,3,2];
 for(const p of PLANETS){p.wx=Math.cos(p.a)*p.orbitR;p.wy=Math.sin(p.a)*p.orbitR;}
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
@@ -153,9 +155,9 @@ for(let i=0;i<70;i++){
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const ship={x:230,y:0,vx:0,vy:1.4,angle:-Math.PI/2,thrust:0,braking:0,health:100,inv:0,fuel:100};
-const cam={x:230,y:0,zoom:1.0};
-const gs={checks:new Array(8).fill(false),target:0,phase:'intro',time:0,showOrbits:true};
+const ship={x:1050,y:0,vx:0,vy:0.58,angle:-Math.PI/2,thrust:0,braking:0,health:100,inv:0,fuel:60};
+const cam={x:1050,y:0,zoom:0.45};
+const gs={checks:new Array(8).fill(false),journeyIdx:0,phase:'briefing',briefTime:0,time:0,showOrbits:true,earthMsgTimer:0};
 const particles=[];const pulses=[];const keys={};
 let viewMode='third';// 'third' | 'cockpit'
 
@@ -414,7 +416,7 @@ window.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();
   initAudio();
-  if(gs.phase==='intro'){gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+  if(gs.phase==='intro'||gs.phase==='briefing'){gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
   if(e.code==='KeyR')resetGame();
   if(e.code==='KeyX'){// X = ミュートトグル
     SND.muted=!SND.muted;
@@ -422,6 +424,9 @@ window.addEventListener('keydown',e=>{
   }
   if(e.code==='KeyV'){viewMode=viewMode==='third'?'cockpit':'third';}
   if(e.code==='KeyO'){gs.showOrbits=!gs.showOrbits;}
+  // ズーム: +/- キー
+  if(e.code==='Equal'||e.code==='NumpadAdd')cam.zoom=Math.min(4.0,cam.zoom*1.2);
+  if(e.code==='Minus'||e.code==='NumpadSubtract')cam.zoom=Math.max(0.18,cam.zoom/1.2);
   // マニューバーノード操作
   if(e.code==='KeyM'){
     if(!MN.active){MN.active=true;MN.type='prograde';}
@@ -434,10 +439,18 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{keys[e.code]=false;});
 canvas.addEventListener('click',()=>{
   initAudio();canvas.focus();
-  if(gs.phase==='intro'){gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+  if(gs.phase==='intro'||gs.phase==='briefing'){gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+  if(gs.phase==='briefing'){gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
   if(isMobile&&(gs.phase==='gameover'||gs.phase==='win'))resetGame();
 });
 canvas.focus();
+
+// ── マウスホイールズーム (PC) ─────────────────────────────────────────────────
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const factor=e.deltaY<0?1.12:1/1.12;
+  cam.zoom=Math.max(0.18,Math.min(4.0,cam.zoom*factor));
+},{passive:false});
 
 // ── Pinch zoom ────────────────────────────────────────────────────────────────
 if(isMobile){
@@ -509,10 +522,10 @@ function showTouchControls(){
 if(isMobile)showTouchControls();
 
 function resetGame(){
-  ship.x=230;ship.y=0;ship.vx=0;ship.vy=1.4;ship.angle=-Math.PI/2;
-  ship.health=100;ship.inv=0;ship.thrust=0;ship.braking=0;ship.fuel=100;
-  cam.x=230;cam.y=0;cam.zoom=1.0;
-  gs.checks.fill(false);gs.target=0;gs.phase='playing';gs.time=0;
+  ship.x=1050;ship.y=0;ship.vx=0;ship.vy=0.58;ship.angle=-Math.PI/2;
+  ship.health=100;ship.inv=0;ship.thrust=0;ship.braking=0;ship.fuel=60;
+  cam.x=1050;cam.y=0;cam.zoom=0.45;
+  gs.checks.fill(false);gs.journeyIdx=0;gs.phase='playing';gs.time=0;gs.briefTime=0;
   particles.length=0;pulses.length=0;
   stopAllSounds();
   document.getElementById('startWrap').style.display='none';
@@ -576,17 +589,6 @@ function update(){
   if(spd>11){ship.vx=ship.vx/spd*11;ship.vy=ship.vy/spd*11;}
   // 摩擦ゼロ — 軌道エネルギーを保存
   ship.x+=ship.vx;ship.y+=ship.vy;
-  // 惑星訪問時に燃料補給（+20）
-  if(gs.target>0&&gs.target<=8){
-    const justChecked=PLANETS[gs.target-1];
-    if(ship.fuel<100&&Math.hypot(ship.x-justChecked.wx,ship.y-justChecked.wy)<justChecked.r+40){
-      // 訪問直後に補給 — pulses配列の最後の追加から判定
-      if(pulses.length>0&&pulses[pulses.length-1].refueled!==gs.target-1){
-        ship.fuel=Math.min(100,ship.fuel+20);
-        pulses[pulses.length-1].refueled=gs.target-1;
-      }
-    }
-  }
   cam.x+=(ship.x-cam.x)*0.1;cam.y+=(ship.y-cam.y)*0.1;
 
   // Planet orbits
@@ -614,6 +616,8 @@ function update(){
 
   // Invincibility
   if(ship.inv>0)ship.inv--;
+  // HP slow regeneration
+  if(ship.health<100&&ship.inv===0)ship.health=Math.min(100,ship.health+0.018);
 
   // ── グラビティアシスト検出 ──
   const curSpd=Math.hypot(ship.vx,ship.vy);
@@ -622,7 +626,7 @@ function update(){
     if(dp<100){
       // 弱い惑星引力（スリングショット用）
       const dx=p.wx-ship.x,dy=p.wy-ship.y;
-      const gp=(p.r*p.r*0.18)/(dp*dp);
+      const gp=(p.r*p.r*0.04)/(dp*dp);
       ship.vx+=(dx/dp)*gp;ship.vy+=(dy/dp)*gp;
     }
   }
@@ -671,36 +675,38 @@ function update(){
     SW.ptcl[i].life-=0.04;if(SW.ptcl[i].life<=0)SW.ptcl.splice(i,1);
   }
 
-  // ── Planet check + ランデブー ──
-  const tgt=gs.target;
-  if(tgt<8){
-    const pl=PLANETS[tgt];
-    const dp2=Math.hypot(ship.x-pl.wx,ship.y-pl.wy);
-    // 惑星軌道速度との相対速度
-    const pv=Math.sqrt(GM_SUN/pl.orbitR);
-    const pAng=Math.atan2(pl.wy,pl.wx)+Math.PI/2;
-    const relVx=ship.vx-Math.cos(pAng)*pv;
-    const relVy=ship.vy-Math.sin(pAng)*pv;
-    RDV.relV=Math.hypot(relVx,relVy);
-    if(dp2<pl.r+28){
-      gs.checks[tgt]=true;gs.target++;
+  // ── 常に地球との相対速度を計算 ──
+  const earth=PLANETS[2];
+  const pv_e=Math.sqrt(GM_SUN/earth.orbitR);
+  const pAng_e=Math.atan2(earth.wy,earth.wx)+Math.PI/2;
+  RDV.relV=Math.hypot(ship.vx-Math.cos(pAng_e)*pv_e,ship.vy-Math.sin(pAng_e)*pv_e);
+
+  // ── 順番通りの惑星訪問判定 (海→天→土→木→火→地) ──
+  if(gs.journeyIdx<journey.length){
+    const tgtIdx=journey[gs.journeyIdx];
+    const pl=PLANETS[tgtIdx];
+    const dist=Math.hypot(ship.x-pl.wx,ship.y-pl.wy);
+    if(dist<pl.r+28){
+      gs.checks[tgtIdx]=true;
+      gs.journeyIdx++;
       pulses.push({x:pl.wx,y:pl.wy,r:pl.r,alpha:1.0});
-      // ランデブー評価 + サウンド
-      if(RDV.relV<0.8){
-        RDV.show=true;RDV.timer=300;RDV.msg='ORBITAL INSERTION';RDV.bonus=35;
-        ship.fuel=Math.min(100,ship.fuel+35);sndOrbitalInsertion();
-      }else if(RDV.relV<2.0){
-        RDV.show=true;RDV.timer=240;RDV.msg='CLOSE APPROACH';RDV.bonus=15;
-        ship.fuel=Math.min(100,ship.fuel+15);sndPlanetVisit();
+      if(tgtIdx===2){
+        gs.phase='win';
       }else{
-        RDV.show=true;RDV.timer=180;RDV.msg='HIGH-SPEED FLYBY';RDV.bonus=5;
-        ship.fuel=Math.min(100,ship.fuel+5);sndPlanetVisit();
+        const bonus=tgtIdx>=4?30:tgtIdx===3?15:10;
+        ship.fuel=Math.min(100,ship.fuel+bonus);
+        if(gs.journeyIdx===journey.length-1)gs.earthMsgTimer=220;
+        const pv_i=Math.sqrt(GM_SUN/pl.orbitR);
+        const pAng_i=Math.atan2(pl.wy,pl.wx)+Math.PI/2;
+        const rv=Math.hypot(ship.vx-Math.cos(pAng_i)*pv_i,ship.vy-Math.sin(pAng_i)*pv_i);
+        RDV.show=true;RDV.timer=240;RDV.bonus=bonus;
+        RDV.msg=rv<0.8?'ORBITAL INSERTION':'FUEL COLLECTED +'+bonus+'%';
+        if(rv<0.8)sndOrbitalInsertion();else sndPlanetVisit();
       }
     }
-  }else{
-    if(Math.hypot(ship.x,ship.y)>ESCAPE_R)gs.phase='win';
   }
   if(RDV.show){RDV.timer--;if(RDV.timer<=0)RDV.show=false;}
+  if(gs.earthMsgTimer>0)gs.earthMsgTimer--;
 
   // Collision
   if(ship.inv===0){
@@ -802,7 +808,7 @@ function drawOrbits3p(){
 
 function drawPlanet(p,idx){
   const s=w2s(p.wx,p.wy),r=p.r*cam.zoom;
-  const checked=gs.checks[idx],isTarget=gs.target===idx;
+  const checked=gs.checks[idx],isTarget=(gs.journeyIdx<journey.length&&journey[gs.journeyIdx]===idx);
   const gg=ctx.createRadialGradient(s.x,s.y,r*0.8,s.x,s.y,r*2.8);
   gg.addColorStop(0,p.glow+'40');gg.addColorStop(1,'transparent');
   ctx.fillStyle=gg;ctx.beginPath();ctx.arc(s.x,s.y,r*2.8,0,Math.PI*2);ctx.fill();
@@ -1073,7 +1079,7 @@ function drawPulses3p(){
 }
 
 function drawEscape3p(){
-  if(gs.target<8)return;
+  if(gs.journeyIdx<journey.length)return;
   const s=w2s(0,0);
   ctx.save();ctx.globalAlpha=0.35+Math.sin(gs.time*0.06)*0.2;
   ctx.strokeStyle='#ffaa00';ctx.lineWidth=1.8;ctx.setLineDash([8,16]);
@@ -1329,11 +1335,11 @@ function drawRendezvousBanner(){
 
 // ランデブー用の相対速度インジケーター（第三者視点）
 function drawRelVelocityHUD(){
-  if(gs.target>=8)return;
-  const pl=PLANETS[gs.target];
-  const dist=Math.hypot(ship.x-pl.wx,ship.y-pl.wy);
-  if(dist>300)return;
-  const relV=RDV.relV;
+  let pl=null,nearDist=300;
+  for(const p of PLANETS){const d=Math.hypot(ship.x-p.wx,ship.y-p.wy);if(d<nearDist){nearDist=d;pl=p;}}
+  if(!pl)return;
+  const pv2=Math.sqrt(GM_SUN/pl.orbitR),pA2=Math.atan2(pl.wy,pl.wx)+Math.PI/2;
+  const relV=Math.hypot(ship.vx-Math.cos(pA2)*pv2,ship.vy-Math.sin(pA2)*pv2);
   const quality=relV<0.8?'ORBITAL INSERT':relV<2.0?'CLOSE APPROACH':'HIGH-SPEED FLY';
   const col=relV<0.8?'#44ff88':relV<2.0?'#ffdd44':'#ff6644';
   ctx.save();
@@ -1379,13 +1385,13 @@ function drawMinimap(){
     ctx.strokeStyle='rgba(80,110,170,0.18)';ctx.lineWidth=0.4;
     ctx.beginPath();ctx.arc(mc,mcc,p.orbitR*msc,0,Math.PI*2);ctx.stroke();
   }
-  if(gs.target>=8){
+  if(false){// escape ring removed
     ctx.strokeStyle='rgba(255,170,0,0.38)';ctx.lineWidth=0.8;ctx.setLineDash([2,3]);
     ctx.beginPath();ctx.arc(mc,mcc,ESCAPE_R*msc,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
   }
   for(let i=0;i<8;i++){
     const p=PLANETS[i],px=mc+p.wx*msc,py=mcc+p.wy*msc;
-    const ck=gs.checks[i],ic=gs.target===i;
+    const ck=gs.checks[i],ic=(gs.journeyIdx<journey.length&&journey[gs.journeyIdx]===i);
     ctx.fillStyle=ck?'#00ff88':ic?'#ffaa00':p.col;
     ctx.shadowBlur=ic?5:0;ctx.shadowColor='#ffaa00';
     ctx.beginPath();ctx.arc(px,py,ic?3:2,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
@@ -1482,7 +1488,7 @@ function drawHUD3p(){
     const eccStr=op.e>990?'∞':op.e.toFixed(3);
     ctx.fillText('Ecc: '+eccStr+'   h: '+Math.abs(op.h||0).toFixed(0),21,217);
     // 軌道進入ヒント
-    const tgt=gs.target<8?PLANETS[gs.target]:null;
+    const tgt=gs.journeyIdx<journey.length?PLANETS[journey[gs.journeyIdx]]:null;
     if(tgt&&op.type==='orbit'){
       ctx.fillStyle='rgba(255,220,80,0.75)';ctx.font='8px "Courier New",monospace';
       const tgtOrbit=tgt.orbitR;
@@ -1496,36 +1502,35 @@ function drawHUD3p(){
 
   // MISSION PROGRESS: モバイルはドットのみ右上に小さく、PCは中央に大きく
   if(isMobile){
-    // 右上に小さいドット列
-    const dotR=5,dotGap=13,startX=W()-8*dotGap-6,dotY=18;
+    const dotR=5,dotGap=14,startX=W()-journey.length*dotGap-6,dotY=18;
     ctx.save();
-    ctx.fillStyle='rgba(0,8,22,0.70)';rrect(startX-4,8,8*dotGap+8,20,4);ctx.fill();
-    for(let i=0;i<8;i++){
-      const cx=startX+i*dotGap+dotR,cy=dotY;
-      const ck=gs.checks[i],ic=gs.target===i;
-      ctx.fillStyle=ck?'#00ff88':ic?'#ffaa00':'#1c2a3a';
-      ctx.shadowBlur=ck?5:ic?8:0;ctx.shadowColor=ck?'#00ff88':'#ffaa00';
+    ctx.fillStyle='rgba(0,8,22,0.70)';rrect(startX-4,8,journey.length*dotGap+8,20,4);ctx.fill();
+    for(let j=0;j<journey.length;j++){
+      const i=journey[j],cx=startX+j*dotGap+dotR,cy=dotY;
+      const ck=gs.checks[i],isEarth=i===2;
+      ctx.fillStyle=ck?'#00ff88':isEarth?'#4488ff':'#1c2a3a';
+      ctx.shadowBlur=ck?5:isEarth?8:0;ctx.shadowColor=ck?'#00ff88':'#4488ff';
       ctx.beginPath();ctx.arc(cx,cy,dotR,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-      if(ic){
-        ctx.strokeStyle='#ffaa00';ctx.lineWidth=1;ctx.globalAlpha=0.4+Math.sin(gs.time*0.1)*0.6;
+      if(isEarth&&!ck){
+        ctx.strokeStyle='#4488ff';ctx.lineWidth=1;ctx.globalAlpha=0.4+Math.sin(gs.time*0.1)*0.6;
         ctx.beginPath();ctx.arc(cx,cy,dotR+3,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
       }
     }
     ctx.restore();
   }else{
-    const cpW=8*30+18,cpX=(W()-cpW)/2;
+    const cpW=journey.length*30+18,cpX=(W()-cpW)/2;
     ctx.save();ctx.fillStyle='rgba(0,8,22,0.72)';rrect(cpX,12,cpW,50,7);ctx.fill();
     ctx.strokeStyle='rgba(80,140,220,0.28)';ctx.lineWidth=0.8;rrect(cpX,12,cpW,50,7);ctx.stroke();
     ctx.fillStyle='rgba(80,140,220,0.55)';ctx.font='9px "Courier New",monospace';ctx.textAlign='center';
-    ctx.fillText('MISSION PROGRESS',W()/2,27);
-    for(let i=0;i<8;i++){
-      const cx=cpX+19+i*30,cy=44;
-      const ck=gs.checks[i],ic=gs.target===i;
-      ctx.fillStyle=ck?'#00ff88':ic?'#ffaa00':'#1c2a3a';
-      ctx.shadowBlur=ck?7:ic?12:0;ctx.shadowColor=ck?'#00ff88':'#ffaa00';
+    ctx.fillText('RETURN TO EARTH',W()/2,27);
+    for(let j=0;j<journey.length;j++){
+      const i=journey[j],cx=cpX+19+j*30,cy=44;
+      const ck=gs.checks[i],isEarth=i===2;
+      ctx.fillStyle=ck?'#00ff88':isEarth?'#4488ff':'#1c2a3a';
+      ctx.shadowBlur=ck?7:isEarth?12:0;ctx.shadowColor=ck?'#00ff88':'#4488ff';
       ctx.beginPath();ctx.arc(cx,cy,7,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-      if(ic){
-        ctx.strokeStyle='#ffaa00';ctx.lineWidth=1.2;ctx.globalAlpha=0.45+Math.sin(gs.time*0.1)*0.55;
+      if(isEarth&&!ck){
+        ctx.strokeStyle='#4488ff';ctx.lineWidth=1.2;ctx.globalAlpha=0.45+Math.sin(gs.time*0.1)*0.55;
         ctx.beginPath();ctx.arc(cx,cy,11,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
       }
       ctx.fillStyle='rgba(80,140,220,0.4)';ctx.font='7px "Courier New",monospace';ctx.textAlign='center';
@@ -1533,18 +1538,20 @@ function drawHUD3p(){
     }
     ctx.restore();
   }
-  if(gs.target>=8){
-    ctx.save();ctx.fillStyle='rgba(0,8,22,0.82)';rrect((W()-320)/2,CH()-26,320,44,8);ctx.fill();
-    ctx.fillStyle='#ffaa00';ctx.font='bold 12px "Courier New",monospace';ctx.textAlign='center';
-    ctx.shadowBlur=8;ctx.shadowColor='#ffaa00';
-    ctx.fillText('ALL PLANETS VISITED — ESCAPE NOW!',W()/2,CH()+3);ctx.restore();
+  if(gs.earthMsgTimer>0){
+    const alpha=gs.earthMsgTimer<60?gs.earthMsgTimer/60:1;
+    ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle='rgba(0,8,22,0.82)';rrect((W()-320)/2,CH()-26,320,44,8);ctx.fill();
+    ctx.fillStyle='#4488ff';ctx.font='bold 12px "Courier New",monospace';ctx.textAlign='center';
+    ctx.shadowBlur=8;ctx.shadowColor='#4488ff';
+    ctx.fillText('最終目標: 地球 — 軌道を合わせて帰還せよ!',W()/2,CH()+3);ctx.restore();
   }
   if(!isMobile){ctx.save();
   ctx.fillStyle='rgba(0,8,22,0.55)';rrect(12,H()-82,205,70,7);ctx.fill();
   ctx.fillStyle='rgba(80,140,220,0.4)';ctx.font='9px "Courier New",monospace';ctx.textAlign='left';
   ctx.fillText('W/↑ THRUST   S/↓ BRAKE',22,H()-64);
   ctx.fillText('A/D/←→ ROTATE',22,H()-51);
-  ctx.fillText('O ORBITS   R RESTART',22,H()-38);ctx.restore();}
+  ctx.fillText('O ORBITS   R RESTART',22,H()-38);
+  ctx.fillText('Scroll / +- ZOOM',22,H()-25);ctx.restore();}
 
   if(!isMobile){drawViewToggleBtn();drawMinimap();}
 }
@@ -1661,7 +1668,7 @@ function drawCockpitObjects(vpH){
       ctx.beginPath();ctx.arc(sx,sy,apparent+1.5,0,Math.PI*2);ctx.stroke();ctx.restore();
     }
     // Targeting
-    const checked=gs.checks[i],isTarget=gs.target===i;
+    const checked=gs.checks[i],isTarget=(gs.journeyIdx<journey.length&&journey[gs.journeyIdx]===i);
     if(isTarget&&!checked){
       ctx.save();ctx.strokeStyle='#00ffaa';ctx.lineWidth=1.5;
       ctx.globalAlpha=0.6+Math.sin(gs.time*0.1)*0.4;ctx.setLineDash([3,3]);
@@ -1679,8 +1686,8 @@ function drawCockpitObjects(vpH){
     }
   }
   // Off-screen target arrow
-  if(gs.target<8){
-    const tgt=PLANETS[gs.target];
+  if(gs.journeyIdx<journey.length){
+    const tgt=PLANETS[journey[gs.journeyIdx]];
     const{az}=projectWorld(tgt.wx,tgt.wy);
     if(Math.abs(az)>FOV_H/2){
       const arrowX=az>0?W()-24:24;
@@ -1836,7 +1843,7 @@ function drawCockpitHUD(vpH){
   }
   ctx.restore();
   // Escape indicator
-  if(gs.target>=8){
+  if(false){// escape indicator removed
     ctx.save();ctx.fillStyle='#ffaa00';ctx.font='bold 10px "Courier New",monospace';ctx.textAlign='center';
     ctx.shadowBlur=8;ctx.shadowColor='#ffaa00';
     ctx.fillText('ESCAPE BOUNDARY '+ESCAPE_R.toFixed(0)+' AU — FLY OUTWARD',CX(),22);
@@ -1974,7 +1981,7 @@ function drawCockpitPanel(vpH,panelH){
   ctx.textAlign='center';
 
   const orbitLabel=op2?(op2.type==='escape'?'ESCAPE':'Ecc '+op2.e.toFixed(2)):'—';
-  const tgtOrbitR=gs.target<8?PLANETS[gs.target].orbitR:ESCAPE_R;
+  const tgtOrbitR=gs.journeyIdx<journey.length?PLANETS[journey[gs.journeyIdx]].orbitR:PLANETS[2].orbitR;
   const burnHint=op2&&op2.type==='orbit'?(
     op2.ap<tgtOrbitR-20?'↑ PROGRADEBURN':
     op2.pe>tgtOrbitR+20?'↓ RETROBURN':
@@ -1986,7 +1993,7 @@ function drawCockpitPanel(vpH,panelH){
     {x:W()*0.39, label:'APOAPSIS',  val:op2&&op2.type==='orbit'?apVal.toFixed(0)+' AU':'∞'},
     {x:W()*0.54, label:'ORBIT',     val:orbitLabel},
     {x:W()*0.69, label:'BURN HINT', val:burnHint, color:burnHint==='ON COURSE'?'#44ff88':'#ffcc44'},
-    {x:W()*0.845,label:'TARGET',    val:gs.target<8?PLANETS[gs.target].name:'ESCAPE!'},
+    {x:W()*0.845,label:'TARGET',    val:gs.journeyIdx<journey.length?PLANETS[journey[gs.journeyIdx]].name:'EARTH!'},
     {x:W()*0.96, label:'TIME',      val:formatTime(gs.time)},
   ];
   for(const rd of readouts){
@@ -2004,7 +2011,7 @@ function drawCockpitPanel(vpH,panelH){
   ctx.fillStyle='rgba(60,110,180,0.6)';ctx.font='8px "Courier New",monospace';ctx.textAlign='left';
   ctx.fillText('MISSION LOG',clX+8,clY+14);
   for(let i=0;i<8;i++){
-    const ck=gs.checks[i],ic=gs.target===i&&!ck;
+    const ck=gs.checks[i],ic=(gs.journeyIdx<journey.length&&journey[gs.journeyIdx]===i&&!ck);
     const ly=clY+26+i*18;
     ctx.fillStyle=ck?'#00ff88':ic?'#ffaa00':'rgba(60,90,130,0.6)';
     ctx.font=ic?'bold 9px "Courier New",monospace':'9px "Courier New",monospace';
@@ -2012,9 +2019,9 @@ function drawCockpitPanel(vpH,panelH){
     ctx.fillText(`${icon} ${PLANETS[i].name}`,clX+8,ly);
     if(ck){ctx.strokeStyle='rgba(0,255,136,0.25)';ctx.lineWidth=0.7;ctx.beginPath();ctx.moveTo(clX+8,ly-3);ctx.lineTo(clX+180,ly-3);ctx.stroke();}
   }
-  if(gs.target>=8){
-    ctx.fillStyle='#ffaa00';ctx.font='bold 9px "Courier New",monospace';
-    ctx.fillText('▶ FLY TO EDGE!',clX+8,clY+26+8*18);
+  if(gs.checks[2]){
+    ctx.fillStyle='#4488ff';ctx.font='bold 9px "Courier New",monospace';
+    ctx.fillText('▶ EARTH REACHED!',clX+8,clY+26+8*18);
   }
   ctx.restore();
   // View/orbit buttons indicator
@@ -2075,11 +2082,11 @@ function drawCockpitView(){
   drawGravityAssist();drawRendezvousBanner();
 
   // Mission completion banner
-  if(gs.target>=8){
-    ctx.save();ctx.fillStyle='rgba(0,8,22,0.88)';rrect((W()-340)/2,vpH*0.5-28,340,48,8);ctx.fill();
-    ctx.fillStyle='#ffaa00';ctx.font='bold 13px "Courier New",monospace';ctx.textAlign='center';
-    ctx.shadowBlur=10;ctx.shadowColor='#ffaa00';
-    ctx.fillText('ALL PLANETS VISITED — ESCAPE THE SYSTEM!',W()/2,vpH*0.5+2);ctx.restore();
+  if(gs.checks[2]===false&&Math.hypot(ship.x-earth.wx,ship.y-earth.wy)<200){
+    ctx.save();ctx.fillStyle='rgba(0,8,22,0.88)';rrect((W()-300)/2,vpH*0.5-28,300,48,8);ctx.fill();
+    ctx.fillStyle='#4488ff';ctx.font='bold 13px "Courier New",monospace';ctx.textAlign='center';
+    ctx.shadowBlur=10;ctx.shadowColor='#4488ff';
+    ctx.fillText('EARTH AHEAD — MATCH ORBIT TO LAND',W()/2,vpH*0.5+2);ctx.restore();
   }
 }
 
@@ -2088,10 +2095,10 @@ function drawEndScreen(win){
   ctx.fillStyle=win?'rgba(0,0,5,0.78)':'rgba(0,0,5,0.82)';ctx.fillRect(0,0,W(),H());
   ctx.save();ctx.textAlign='center';
   if(win){
-    ctx.shadowBlur=28;ctx.shadowColor='#ffcc00';ctx.fillStyle='#ffcc00';
-    ctx.font='bold 40px "Courier New",monospace';ctx.fillText('SYSTEM ESCAPED',CX(),CH()-30);
+    ctx.shadowBlur=28;ctx.shadowColor='#4488ff';ctx.fillStyle='#4488ff';
+    ctx.font='bold 40px "Courier New",monospace';ctx.fillText('RETURNED TO EARTH',CX(),CH()-30);
     ctx.shadowColor='#00ff88';ctx.fillStyle='#00ff88';ctx.font='16px "Courier New",monospace';
-    ctx.fillText('Mission complete — you are free',CX(),CH()+10);
+    ctx.fillText('Welcome home, Commander',CX(),CH()+10);
   }else{
     ctx.shadowBlur=28;ctx.shadowColor='#ff3300';ctx.fillStyle='#ff3300';
     ctx.font='bold 40px "Courier New",monospace';ctx.fillText('SHIP DESTROYED',CX(),CH()-30);
@@ -2101,12 +2108,95 @@ function drawEndScreen(win){
   ctx.fillText(isMobile?'Tap to restart':'Press R to restart',CX(),CH()+45);ctx.restore();
 }
 
+// ── ミッションブリーフィング ──────────────────────────────────────────────────
+const BRIEF_LINES=[
+  {t:20,  main:'[ 緊急通信受信 ]',                   sub:'EMERGENCY TRANSMISSION RECEIVED'},
+  {t:60,  main:'コマンダー、聞こえるか？',              sub:'COMMANDER, DO YOU READ?'},
+  {t:105, main:'あなたの船は海王星軌道付近に漂流中',    sub:'VESSEL ADRIFT NEAR NEPTUNE ORBIT'},
+  {t:150, main:'燃料は残り少ない。急いでくれ',          sub:'FUEL IS LOW — ACT QUICKLY'},
+  {t:195, main:'惑星の重力を利用して地球へ帰還せよ',    sub:'USE PLANETARY GRAVITY TO RETURN HOME'},
+  {t:235, main:'訪問順序を厳守すること：',              sub:'VISIT IN ORDER:'},
+  {t:265, main:'海王星→天王星→土星→木星→火星→地球',   sub:'NEPTUNE→URANUS→SATURN→JUPITER→MARS→EARTH'},
+];
+function drawBriefing(){
+  // Space background
+  ctx.fillStyle='#000008';ctx.fillRect(0,0,W(),H());
+  // Stars (parallax layer 0 only, static-ish)
+  ctx.save();
+  for(const s of STARS){
+    if(s.layer!==0)continue;
+    const sx=(s.wx-cam.x*0.25)+CX(),sy=(s.wy-cam.y*0.25)+CH();
+    if(sx<0||sx>W()||sy<0||sy>H())continue;
+    ctx.globalAlpha=s.br*0.65;
+    ctx.fillStyle=s.hue===0?'#ffffff':s.hue===1?'#b8ccff':'#fff5cc';
+    ctx.beginPath();ctx.arc(sx,sy,s.sz,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;ctx.restore();
+  // Cockpit frame edges
+  const cw=W()*0.10;
+  const lGrad=ctx.createLinearGradient(0,0,cw,0);
+  lGrad.addColorStop(0,'rgba(8,18,50,1)');lGrad.addColorStop(1,'rgba(8,18,50,0)');
+  ctx.fillStyle=lGrad;ctx.fillRect(0,0,cw,H());
+  const rGrad=ctx.createLinearGradient(W()-cw,0,W(),0);
+  rGrad.addColorStop(0,'rgba(8,18,50,0)');rGrad.addColorStop(1,'rgba(8,18,50,1)');
+  ctx.fillStyle=rGrad;ctx.fillRect(W()-cw,0,cw,H());
+  // Bottom vignette
+  const bGrad=ctx.createLinearGradient(0,H()*0.7,0,H());
+  bGrad.addColorStop(0,'rgba(0,0,10,0)');bGrad.addColorStop(1,'rgba(0,0,10,0.7)');
+  ctx.fillStyle=bGrad;ctx.fillRect(0,0,W(),H());
+
+  const t=gs.briefTime;
+  const cx=CX(),cy=CH();
+  // Panel
+  const pw=Math.min(600,W()-60),ph=310;
+  const px=(W()-pw)/2,py=cy-ph/2-10;
+  ctx.fillStyle='rgba(0,5,20,0.88)';rrect(px,py,pw,ph,10);ctx.fill();
+  ctx.strokeStyle='rgba(60,120,220,0.55)';ctx.lineWidth=1.5;rrect(px,py,pw,ph,10);ctx.stroke();
+  // Top scan line
+  ctx.fillStyle='rgba(60,120,220,0.15)';ctx.fillRect(px,py,pw,2);
+  // Header
+  ctx.fillStyle='rgba(60,120,220,0.6)';ctx.font='9px "Courier New",monospace';ctx.textAlign='center';
+  ctx.shadowBlur=0;ctx.fillText('■ EARTH MISSION CONTROL — CLASSIFIED ■',cx,py+18);
+  ctx.strokeStyle='rgba(60,120,220,0.25)';ctx.lineWidth=0.5;
+  ctx.beginPath();ctx.moveTo(px+14,py+24);ctx.lineTo(px+pw-14,py+24);ctx.stroke();
+  // Briefing lines
+  let lineY=py+46;
+  for(const ln of BRIEF_LINES){
+    const alpha=Math.min(1,(t-ln.t)/18);
+    if(alpha<=0)break;
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle='#ddeeff';ctx.font='bold 15px "Courier New",monospace';ctx.textAlign='center';
+    ctx.shadowBlur=6;ctx.shadowColor='rgba(100,180,255,0.5)';
+    ctx.fillText(ln.main,cx,lineY);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(100,160,220,0.7)';ctx.font='9px "Courier New",monospace';
+    ctx.fillText(ln.sub,cx,lineY+14);
+    lineY+=38;ctx.globalAlpha=1;
+  }
+  // CRT scan line effect
+  for(let sy2=py;sy2<py+ph;sy2+=4){
+    ctx.fillStyle='rgba(0,0,0,0.06)';ctx.fillRect(px,sy2,pw,1);
+  }
+  // Prompt
+  if(t>300){
+    const pulse=0.55+Math.sin(t*0.09)*0.45;
+    ctx.globalAlpha=pulse;
+    ctx.fillStyle='#ffcc44';ctx.font='bold 11px "Courier New",monospace';ctx.textAlign='center';
+    ctx.shadowBlur=8;ctx.shadowColor='#ffcc44';
+    ctx.fillText(isMobile?'タップして出発 / TAP TO LAUNCH':'タップまたはキーを押して出発 / PRESS ANY KEY',cx,py+ph-14);
+    ctx.globalAlpha=1;ctx.shadowBlur=0;
+  }
+}
+
 // ── Main loop ─────────────────────────────────────────────────────────────────
 let last=0;
 function loop(ts){
   requestAnimationFrame(loop);
   const _dt=Math.min((ts-last)/16.67,3);last=ts;
 
+  if(gs.phase==='briefing'){
+    gs.briefTime++;
+  }
   if(gs.phase==='playing')update();
 
   if(viewMode==='cockpit'){
@@ -2118,10 +2208,11 @@ function loop(ts){
     for(let i=0;i<8;i++)drawPlanet(PLANETS[i],i);
     drawDebris3p();drawOrbitPath();drawManeuverNode();drawShip3p();drawPulses3p();drawEscape3p();
     drawSolarWind();
-    if(gs.phase!=='intro'){drawHUD3p();drawRelVelocityHUD();}
+    if(gs.phase!=='intro'&&gs.phase!=='briefing'){drawHUD3p();drawRelVelocityHUD();}
     drawGravityAssist();drawRendezvousBanner();
   }
 
+  if(gs.phase==='briefing')drawBriefing();
   if(gs.phase==='win')drawEndScreen(true);
   if(gs.phase==='gameover')drawEndScreen(false);
 }
