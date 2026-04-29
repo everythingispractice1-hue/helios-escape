@@ -183,13 +183,20 @@ const SND={
 };
 
 function initAudio(){
-  if(SND.ctx)return;
+  if(SND.ctx){
+    // iOSはタッチ後にresume必須
+    if(SND.ctx.state==='suspended')SND.ctx.resume();
+    return;
+  }
   try{
     SND.ctx=new(window.AudioContext||window.webkitAudioContext)();
     SND.master=SND.ctx.createGain();SND.master.gain.value=0.38;
     SND.master.connect(SND.ctx.destination);
+    if(SND.ctx.state==='suspended')SND.ctx.resume();
   }catch(e){console.warn('WebAudio unavailable');}
 }
+// iOS Safari: 最初のタッチでAudioContextを解除
+document.addEventListener('touchstart',()=>initAudio(),{once:true,passive:true});
 
 // ホワイトノイズバッファ生成
 function mkNoise(sec=1){
