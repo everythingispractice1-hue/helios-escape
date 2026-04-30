@@ -229,10 +229,8 @@ function initAudio(){
     const buf=SND.ctx.createBuffer(1,1,22050);
     const src=SND.ctx.createBufferSource();
     src.buffer=buf;src.connect(SND.ctx.destination);src.start(0);
-    const _afterResume=()=>{
-      _audioJustUnlocked=true;
-      if(gs.phase==='briefing')startBriefingBGM();
-    };
+    _audioJustUnlocked=true;// 同期的に先にフラグを立てる
+    const _afterResume=()=>{if(gs.phase==='briefing')startBriefingBGM();};
     if(SND.ctx.state==='running'){_afterResume();}
     else{SND.ctx.resume().then(_afterResume).catch(_afterResume);}
   }catch(e){console.warn('WebAudio unavailable');}
