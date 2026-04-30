@@ -13,16 +13,21 @@
   #startBox{font-family:'Courier New',monospace;color:#fff;text-align:center;}
   .tbtn{
     position:absolute;
-    border-radius:10px;
-    background:rgba(30,60,130,0.45);
-    border:1.5px solid rgba(80,140,240,0.45);
+    border-radius:12px;
+    background:rgba(10,30,80,0.60);
+    border:1.5px solid rgba(60,120,220,0.50);
     color:rgba(160,210,255,0.95);
     font-family:'Courier New',monospace;
     display:flex;align-items:center;justify-content:center;flex-direction:column;
     pointer-events:all;user-select:none;-webkit-user-select:none;touch-action:none;
-    transition:background 0.08s,border-color 0.08s;
+    transition:background 0.07s,border-color 0.07s,box-shadow 0.07s;
+    box-shadow:0 0 8px rgba(40,100,220,0.15);
   }
-  .tbtn.act{background:rgba(80,150,255,0.6);border-color:rgba(140,200,255,0.9);}
+  .tbtn.act{
+    background:rgba(60,130,255,0.55);
+    border-color:rgba(120,190,255,0.9);
+    box-shadow:0 0 14px rgba(80,160,255,0.45);
+  }
 </style>
 </head>
 <body>
@@ -48,7 +53,7 @@
     </div>
   </div>
   <!-- Touch controls — モバイル専用コントローラー -->
-  <div id="mobileCtrl" style="display:none;position:absolute;bottom:0;left:0;right:0;height:190px;pointer-events:none;background:rgba(0,5,20,0.55);border-top:1px solid rgba(60,120,220,0.25);">
+  <div id="mobileCtrl" style="display:none;position:absolute;bottom:0;left:0;right:0;height:190px;pointer-events:none;background:linear-gradient(to top,rgba(0,5,20,0.72),rgba(0,5,20,0.35));border-top:1px solid rgba(60,120,220,0.30);">
 
     <!-- 左サム: D-pad — 十字は left:82 を中心に 62px × 3列, bottom:4 から3段 -->
     <div id="tcT" class="tbtn" style="left:82px;bottom:128px;width:62px;height:62px;font-size:26px;">
@@ -106,14 +111,14 @@ function rng(s){let x=Math.sin(s+1)*99999;return x-Math.floor(x);}
 
 // ── Planet data ───────────────────────────────────────────────────────────────
 const PLANETS=[
-  {name:'Mercury',orbitR:110,r:5, spd:0.024,a:0.4, col:'#bbb8b0',glow:'#998880',type:'rock'},
-  {name:'Venus',  orbitR:165,r:9, spd:0.017,a:1.2, col:'#e8c87a',glow:'#d4a030',type:'rock'},
-  {name:'Earth',  orbitR:230,r:11,spd:0.011,a:0.5, col:'#2b7fc1',glow:'#3d9fe0',type:'earth'},
-  {name:'Mars',   orbitR:305,r:7, spd:0.008,a:2.1, col:'#c1440e',glow:'#e04010',type:'rock'},
-  {name:'Jupiter',orbitR:430,r:28,spd:0.0045,a:0.8,col:'#c8823a',glow:'#d49040',type:'gas'},
-  {name:'Saturn', orbitR:555,r:22,spd:0.0032,a:1.8,col:'#e4d090',glow:'#c8a840',type:'saturn'},
-  {name:'Uranus', orbitR:670,r:16,spd:0.0022,a:3.5,col:'#7ee8e0',glow:'#50c8c0',type:'ice'},
-  {name:'Neptune',orbitR:780,r:15,spd:0.0016,a:5.0,col:'#2840c8',glow:'#4060e0',type:'ice'},
+  {name:'Mercury',orbitR:110,r:5, spd:0.024,a:0.4, col:'#bbb8b0',glow:'#998880',type:'rock',  texKey:'mercury',rotSpd:0.00018},
+  {name:'Venus',  orbitR:165,r:9, spd:0.017,a:1.2, col:'#e8c87a',glow:'#d4a030',type:'rock',  texKey:'venus',  rotSpd:0.00007},
+  {name:'Earth',  orbitR:230,r:11,spd:0.011,a:0.5, col:'#2b7fc1',glow:'#3d9fe0',type:'earth', texKey:'earth',  rotSpd:0.00032},
+  {name:'Mars',   orbitR:305,r:7, spd:0.008,a:2.1, col:'#c1440e',glow:'#e04010',type:'rock',  texKey:'mars',   rotSpd:0.00031},
+  {name:'Jupiter',orbitR:430,r:28,spd:0.0045,a:0.8,col:'#c8823a',glow:'#d49040',type:'gas',   texKey:'jupiter',rotSpd:0.00085},
+  {name:'Saturn', orbitR:555,r:22,spd:0.0032,a:1.8,col:'#e4d090',glow:'#c8a840',type:'saturn',texKey:'saturn', rotSpd:0.00078},
+  {name:'Uranus', orbitR:670,r:16,spd:0.0022,a:3.5,col:'#7ee8e0',glow:'#50c8c0',type:'ice',   texKey:'uranus', rotSpd:0.00055},
+  {name:'Neptune',orbitR:780,r:15,spd:0.0016,a:5.0,col:'#2840c8',glow:'#4060e0',type:'ice',   texKey:'neptune',rotSpd:0.00048},
 ];
 const ESCAPE_R=880, SUN_R=38;
 // GM_SUN=450 → 地球軌道(r=230)で初速vy=1.4が円軌道になるよう設定
@@ -121,6 +126,31 @@ const GM_SUN=450;
 // 訪問順序: 海王星→天王星→土星→木星→火星→地球
 const journey=[7,6,5,4,3,2];
 for(const p of PLANETS){p.wx=Math.cos(p.a)*p.orbitR;p.wy=Math.sin(p.a)*p.orbitR;}
+
+// ── Textures ──────────────────────────────────────────────────────────────────
+const TEX={};
+(()=>{
+  const srcs={
+    mercury:'assets/mercury.jpg',venus:'assets/venus.jpg',
+    earth:'assets/earth.jpg',mars:'assets/mars.jpg',
+    jupiter:'assets/jupiter.jpg',saturn:'assets/saturn.jpg',
+    uranus:'assets/uranus.jpg',neptune:'assets/neptune.jpg',
+    space_bg:'assets/space_bg.jpg',ship:'assets/ship.png',
+    rock1:'assets/rock1.jpg',rock2:'assets/rock2.jpg'
+  };
+  // fetch→blob URL 方式で file:// でもサブフォルダ画像を読める
+  for(const[k,src]of Object.entries(srcs)){
+    fetch(src).then(r=>r.ok?r.blob():Promise.reject(r.status))
+      .then(blob=>{
+        const img=new Image();
+        img.onload=()=>{TEX[k]=img;URL.revokeObjectURL(img.src);};
+        img.src=URL.createObjectURL(blob);
+      }).catch(()=>{
+        // fetchが使えない場合は通常のimg.srcにフォールバック
+        const img=new Image();img.onload=()=>{TEX[k]=img;};img.src=src;
+      });
+  }
+})();
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
 const STARS=[];
@@ -150,7 +180,8 @@ for(let i=0;i<70;i++){
     vx:(rng(i*19.7)-0.5)*0.3,vy:(rng(i*29.3)-0.5)*0.3,
     r:rng(i*43.1)*9+4,verts,
     rot:rng(i*71.3)*Math.PI*2,rotSpd:(rng(i*79.1)-0.5)*0.015,
-    lum:25+Math.floor(rng(i*83.7)*20)
+    lum:25+Math.floor(rng(i*83.7)*20),
+    texKey:rng(i*97.3)<0.55?'rock1':'rock2'
   });
 }
 
@@ -181,12 +212,13 @@ const SND={
   thrustOsc:null,thrustNoise:null,thrustGain:null,
   brakeOsc:null,brakeGain:null,
   windSrc:null,windGain:null,
-  lowFuelTimer:0
+  lowFuelTimer:0,
+  bgmActive:false,bgmNodes:[],bgmMasterGain:null
 };
 
+let _audioJustUnlocked=false;// 初回アンロック直後フラグ
 function initAudio(){
   if(SND.ctx){
-    // iOSはタッチ後にresume必須
     if(SND.ctx.state==='suspended')SND.ctx.resume();
     return;
   }
@@ -194,11 +226,100 @@ function initAudio(){
     SND.ctx=new(window.AudioContext||window.webkitAudioContext)();
     SND.master=SND.ctx.createGain();SND.master.gain.value=0.38;
     SND.master.connect(SND.ctx.destination);
+    const buf=SND.ctx.createBuffer(1,1,22050);
+    const src=SND.ctx.createBufferSource();
+    src.buffer=buf;src.connect(SND.ctx.destination);src.start(0);
     if(SND.ctx.state==='suspended')SND.ctx.resume();
+    _audioJustUnlocked=true;// 初回のみ: BGM起動してスキップしない
+    if(gs.phase==='briefing')startBriefingBGM();
   }catch(e){console.warn('WebAudio unavailable');}
 }
-// iOS Safari: 最初のタッチでAudioContextを解除
 document.addEventListener('touchstart',()=>initAudio(),{once:true,passive:true});
+
+// ── ブリーフィングBGM ──────────────────────────────────────────
+function startBriefingBGM(){
+  if(!SND.ctx||SND.bgmActive)return;
+  SND.bgmActive=true;SND.bgmNodes=[];
+  const ac=SND.ctx,now=ac.currentTime;
+  const bgm=ac.createGain();
+  bgm.gain.setValueAtTime(0,now);
+  bgm.gain.linearRampToValueAtTime(0.48,now+4.5);
+  bgm.connect(SND.master);
+  SND.bgmMasterGain=bgm;
+  // Delay/reverb
+  const dly=ac.createDelay(1.2);dly.delayTime.value=0.55;
+  const dlg=ac.createGain();dlg.gain.value=0.20;
+  dly.connect(dlg);dlg.connect(dly);dlg.connect(bgm);
+  // Timing: 52BPM, Bar=4.6s, Chord=9.2s
+  const BAR=4.615,CHORD=BAR*2;
+  // Dm → Bb → F → C (Dマイナー進行)
+  const CHORDS=[
+    {bass:73.42, pads:[146.83,220.00,293.66,440.00]},// Dm
+    {bass:58.27, pads:[116.54,174.61,233.08,349.23]},// Bb
+    {bass:87.31, pads:[130.81,196.00,261.63,392.00]},// F
+    {bass:65.41, pads:[130.81,196.00,261.63,392.00]},// C
+  ];
+  const TOTAL_BARS=28;
+  for(let bar=0;bar<TOTAL_BARS;bar++){
+    const st=now+1.5+bar*BAR;
+    const ci=Math.floor(bar/2)%CHORDS.length;
+    const ch=CHORDS[ci];
+    const newChord=(bar%2===0);
+    if(newChord){
+      // Pad: sawtooth+sine ensemble (brass/strings)
+      for(let pi=0;pi<ch.pads.length;pi++){
+        const freq=ch.pads[pi];
+        const detune=(pi%2===0)?1.003:0.997;
+        ['sawtooth','sine'].forEach((type,ti)=>{
+          const o=ac.createOscillator();o.type=type;
+          o.frequency.value=freq*detune;
+          const f=ac.createBiquadFilter();f.type='lowpass';
+          f.frequency.value=Math.min(2200,freq*3.5);f.Q.value=0.4;
+          const e=ac.createGain();const vol=type==='sawtooth'?0.048:0.036;
+          e.gain.setValueAtTime(0,st);
+          e.gain.linearRampToValueAtTime(vol,st+0.9);
+          e.gain.setValueAtTime(vol*0.85,st+CHORD-0.7);
+          e.gain.linearRampToValueAtTime(0,st+CHORD+0.4);
+          o.connect(f);f.connect(e);e.connect(bgm);e.connect(dly);
+          o.start(st);o.stop(st+CHORD+0.6);SND.bgmNodes.push(o);
+        });
+      }
+      // Bass (sine)
+      const bo=ac.createOscillator();bo.type='sine';bo.frequency.value=ch.bass;
+      const be=ac.createGain();
+      be.gain.setValueAtTime(0,st);be.gain.linearRampToValueAtTime(0.52,st+0.35);
+      be.gain.setValueAtTime(0.42,st+CHORD-0.6);be.gain.linearRampToValueAtTime(0,st+CHORD+0.1);
+      bo.connect(be);be.connect(bgm);bo.start(st);bo.stop(st+CHORD+0.2);
+      SND.bgmNodes.push(bo);
+    }
+    // ティンパニ (kick-like noise burst on beats 1 & 3)
+    [[0,true],[2,bar%4===0]].forEach(([beat,accent])=>{
+      if(!accent&&beat===2)return;
+      const bst=st+beat*(BAR/4);
+      const sr=ac.sampleRate,len=Math.floor(sr*0.4);
+      const nbuf=ac.createBuffer(1,len,sr);
+      const nd=nbuf.getChannelData(0);
+      for(let j=0;j<len;j++)nd[j]=(Math.random()*2-1)*Math.exp(-j/(sr*0.06));
+      const ns=ac.createBufferSource();ns.buffer=nbuf;
+      const bf=ac.createBiquadFilter();bf.type='bandpass';
+      bf.frequency.value=accent?68:85;bf.Q.value=1.0;
+      const ge=ac.createGain();ge.gain.value=accent?0.55:0.28;
+      ns.connect(bf);bf.connect(ge);ge.connect(bgm);
+      ns.start(bst);SND.bgmNodes.push(ns);
+    });
+  }
+}
+function stopBriefingBGM(fast){
+  if(!SND.ctx||!SND.bgmActive||!SND.bgmMasterGain)return;
+  const t=SND.ctx.currentTime;
+  const dur=fast?0.8:2.5;
+  SND.bgmMasterGain.gain.cancelScheduledValues(t);
+  SND.bgmMasterGain.gain.setValueAtTime(SND.bgmMasterGain.gain.value,t);
+  SND.bgmMasterGain.gain.linearRampToValueAtTime(0,t+dur);
+  const nodes=SND.bgmNodes.slice();
+  setTimeout(()=>{nodes.forEach(n=>{try{n.stop();}catch(e){}});
+    SND.bgmActive=false;SND.bgmMasterGain=null;SND.bgmNodes=[];},dur*1000+200);
+}
 
 // ホワイトノイズバッファ生成
 function mkNoise(sec=1){
@@ -416,7 +537,10 @@ window.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();
   initAudio();
-  if(gs.phase==='intro'||gs.phase==='briefing'){gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+  if(gs.phase==='intro'||gs.phase==='briefing'){
+    if(_audioJustUnlocked){_audioJustUnlocked=false;}// 初回: BGM起動のみ、スキップしない
+    else{stopBriefingBGM(false);gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+  }
   if(e.code==='KeyR')resetGame();
   if(e.code==='KeyX'){// X = ミュートトグル
     SND.muted=!SND.muted;
@@ -439,8 +563,10 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{keys[e.code]=false;});
 canvas.addEventListener('click',()=>{
   initAudio();canvas.focus();
-  if(gs.phase==='intro'||gs.phase==='briefing'){gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
-  if(gs.phase==='briefing'){gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+  if(gs.phase==='intro'||gs.phase==='briefing'){
+    if(_audioJustUnlocked){_audioJustUnlocked=false;}// 初回タップ: BGM起動のみ
+    else{stopBriefingBGM(false);gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+  }
   if(isMobile&&(gs.phase==='gameover'||gs.phase==='win'))resetGame();
 });
 canvas.focus();
@@ -483,7 +609,7 @@ if(isMobile){
 // Touch controls
 function setupTouchBtn(id,code){
   const el=document.getElementById(id);
-  el.addEventListener('touchstart',e=>{e.preventDefault();keys[code]=true;el.classList.add('act');},{passive:false});
+  el.addEventListener('touchstart',e=>{e.preventDefault();initAudio();keys[code]=true;el.classList.add('act');},{passive:false});
   el.addEventListener('touchend',e=>{e.preventDefault();keys[code]=false;el.classList.remove('act');},{passive:false});
   el.addEventListener('mousedown',()=>{keys[code]=true;el.classList.add('act');});
   el.addEventListener('mouseup',()=>{keys[code]=false;el.classList.remove('act');});
@@ -623,10 +749,10 @@ function update(){
   const curSpd=Math.hypot(ship.vx,ship.vy);
   for(const p of PLANETS){
     const dp=Math.hypot(ship.x-p.wx,ship.y-p.wy);
-    if(dp<100){
+    if(dp<90){
       // 弱い惑星引力（スリングショット用）
       const dx=p.wx-ship.x,dy=p.wy-ship.y;
-      const gp=(p.r*p.r*0.04)/(dp*dp);
+      const gp=(p.r*p.r*0.016)/(dp*dp);
       ship.vx+=(dx/dp)*gp;ship.vy+=(dy/dp)*gp;
     }
   }
@@ -717,14 +843,16 @@ function update(){
         const nx=(ship.x-d.wx)/dist,ny=(ship.y-d.wy)/dist;
         ship.vx+=nx*3;ship.vy+=ny*3;
         sndCollision();
-        if(ship.health<=0){ship.health=0;gs.phase='gameover';sndGameOver();}
         break;
       }
     }
   }
-  if(Math.hypot(ship.x,ship.y)<SUN_R+3){gs.phase='gameover';sndGameOver();}
+  if(Math.hypot(ship.x,ship.y)<SUN_R+3){gs.phase='gameover';}
+  // HP が 0 以下になったらゲームオーバー（衝突以外の経路も含めて保険チェック）
+  if(ship.health<=0&&gs.phase==='playing'){ship.health=0;gs.phase='gameover';}
   // フェーズ変化サウンド（1回だけ）
   if(gs.phase==='win'&&!_winPlayed){_winPlayed=true;sndWin();stopAllSounds();}
+  if(gs.phase==='gameover'&&!_gameOverPlayed){_gameOverPlayed=true;stopAllSounds();sndGameOver();}
   updateSounds();
   gs.time++;
 }
@@ -813,8 +941,25 @@ function drawPlanet(p,idx){
   gg.addColorStop(0,p.glow+'40');gg.addColorStop(1,'transparent');
   ctx.fillStyle=gg;ctx.beginPath();ctx.arc(s.x,s.y,r*2.8,0,Math.PI*2);ctx.fill();
   ctx.save();
-  if(p.type==='gas'){
-    ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.clip();
+  ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.clip();
+  const _img=TEX[p.texKey];
+  if(_img){
+    // テクスチャを横スクロールで自転を表現
+    const dw=r*4,dh=r*2;
+    const ox=((gs.time*p.rotSpd%1)*dw+dw)%dw;
+    ctx.drawImage(_img,s.x-r-ox,s.y-r,dw,dh);
+    ctx.drawImage(_img,s.x-r-ox+dw,s.y-r,dw,dh);
+    // 太陽方向から球面ライティング
+    const _sd=Math.hypot(p.wx,p.wy)||1;
+    const _lx=s.x+(-p.wx/_sd)*r*0.5,_ly=s.y+(-p.wy/_sd)*r*0.5;
+    const _dg=ctx.createRadialGradient(_lx,_ly,0,s.x+(p.wx/_sd)*r*0.3,s.y+(p.wy/_sd)*r*0.3,r*1.15);
+    _dg.addColorStop(0,'rgba(0,0,0,0)');_dg.addColorStop(0.5,'rgba(0,0,0,0.12)');_dg.addColorStop(1,'rgba(0,0,0,0.74)');
+    ctx.fillStyle=_dg;ctx.fillRect(s.x-r,s.y-r,r*2,r*2);
+    // スペキュラハイライト
+    const _hg=ctx.createRadialGradient(_lx,_ly,0,_lx,_ly,r*0.75);
+    _hg.addColorStop(0,'rgba(255,255,255,0.18)');_hg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=_hg;ctx.fillRect(s.x-r,s.y-r,r*2,r*2);
+  }else if(p.type==='gas'){
     ctx.fillStyle='#c8823a';ctx.fillRect(s.x-r,s.y-r,r*2,r*2);
     for(const b of [{y:-0.65,h:0.18,c:'#b86830'},{y:-0.25,h:0.14,c:'#d4a060'},{y:0.06,h:0.22,c:'#aa5818'},{y:0.38,h:0.18,c:'#d49868'},{y:0.65,h:0.14,c:'#b07040'}]){
       ctx.fillStyle=b.c;ctx.fillRect(s.x-r,s.y+b.y*r,r*2,b.h*r*2);
@@ -825,7 +970,7 @@ function drawPlanet(p,idx){
     if(p.type==='earth'){sg.addColorStop(0,'#4ab0e8');sg.addColorStop(0.4,'#2b7fc1');sg.addColorStop(0.75,'#185a88');sg.addColorStop(1,'#0a2c48');}
     else if(p.type==='ice'){sg.addColorStop(0,p.col);sg.addColorStop(0.55,p.col+'bb');sg.addColorStop(1,'#000820');}
     else{sg.addColorStop(0,p.col+'ff');sg.addColorStop(0.6,p.col+'bb');sg.addColorStop(1,'#050505');}
-    ctx.save();ctx.shadowBlur=12;ctx.shadowColor=p.glow;ctx.fillStyle=sg;ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();ctx.restore();
+    ctx.shadowBlur=12;ctx.shadowColor=p.glow;ctx.fillStyle=sg;ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
   }
   ctx.restore();
   if(p.type==='earth'){
@@ -871,17 +1016,33 @@ function drawDebris3p(){
     const s=w2s(d.wx,d.wy);
     if(s.x<-80||s.x>W()+80||s.y<-80||s.y>H()+80)continue;
     ctx.save();ctx.translate(s.x,s.y);ctx.rotate(d.rot);
-    ctx.beginPath();
     const dr=d.r*cam.zoom;
+    ctx.beginPath();
     for(let i=0;i<d.verts.length;i++){
       const v=d.verts[i],px=Math.cos(v.a)*dr*v.rad,py=Math.sin(v.a)*dr*v.rad;
       i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
     }
     ctx.closePath();
-    const dg=ctx.createRadialGradient(-dr*0.3,-dr*0.3,0,0,0,dr);
-    dg.addColorStop(0,`hsl(25,12%,${d.lum+15}%)`);dg.addColorStop(1,`hsl(20,8%,${d.lum-8}%)`);
-    ctx.fillStyle=dg;ctx.fill();
-    ctx.strokeStyle=`hsl(20,8%,${d.lum-5}%)`;ctx.lineWidth=0.4;ctx.stroke();ctx.restore();
+    const tex=TEX[d.texKey];
+    if(tex){
+      ctx.save();ctx.clip();
+      // テクスチャをデブリ中心に合わせてサンプリング
+      const tw=tex.naturalWidth||tex.width,th=tex.naturalHeight||tex.height;
+      const sc=(dr*2)/Math.min(tw,th);
+      ctx.drawImage(tex,0,0,tw,th,-dr,-dr,tw*sc,th*sc);
+      // 球面シェーディング: 暗めの縁グラデ
+      const sg=ctx.createRadialGradient(-dr*0.35,-dr*0.35,dr*0.05,0,0,dr);
+      sg.addColorStop(0,'rgba(255,255,255,0.08)');sg.addColorStop(0.6,'rgba(0,0,0,0)');sg.addColorStop(1,'rgba(0,0,0,0.55)');
+      ctx.fillStyle=sg;ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.lineWidth=0.5;ctx.stroke();
+    }else{
+      const dg=ctx.createRadialGradient(-dr*0.3,-dr*0.3,0,0,0,dr);
+      dg.addColorStop(0,`hsl(25,12%,${d.lum+15}%)`);dg.addColorStop(1,`hsl(20,8%,${d.lum-8}%)`);
+      ctx.fillStyle=dg;ctx.fill();
+      ctx.strokeStyle=`hsl(20,8%,${d.lum-5}%)`;ctx.lineWidth=0.4;ctx.stroke();
+    }
+    ctx.restore();
   }
 }
 
@@ -955,115 +1116,122 @@ function drawSpaceship(sx, sy, angle, thrusting, braking){
     ctx.restore();
   }
 
-  // === Main body (fuselage) ===
-  ctx.shadowBlur=18;ctx.shadowColor='rgba(100,160,255,0.6)';
-  // Fuselage — elongated hexagonal shape
-  const fg=ctx.createLinearGradient(-18*sc,-8*sc,22*sc,0);
-  fg.addColorStop(0,'#0d1f55');fg.addColorStop(0.3,'#1a3a8a');fg.addColorStop(0.7,'#2250b8');fg.addColorStop(1,'#3a6ad4');
-  ctx.fillStyle=fg;
-  ctx.beginPath();
-  ctx.moveTo( 24*sc,  0);       // nose
-  ctx.lineTo( 14*sc, -5*sc);    // nose-top shoulder
-  ctx.lineTo(-10*sc, -7*sc);    // body top
-  ctx.lineTo(-18*sc, -4*sc);    // tail top
-  ctx.lineTo(-18*sc,  4*sc);    // tail bottom
-  ctx.lineTo(-10*sc,  7*sc);    // body bottom
-  ctx.lineTo( 14*sc,  5*sc);    // nose-bottom shoulder
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle='rgba(80,130,220,0.7)';ctx.lineWidth=0.8;ctx.stroke();
-  ctx.shadowBlur=0;
-
-  // === Wing strakes (delta wings) ===
-  const wg=ctx.createLinearGradient(0,-18*sc,0,0);
-  wg.addColorStop(0,'#0a1640');wg.addColorStop(1,'#1a3070');
-  ctx.fillStyle=wg;
-  // Left wing
-  ctx.beginPath();
-  ctx.moveTo( 8*sc, -6*sc);
-  ctx.lineTo(-12*sc,-18*sc);
-  ctx.lineTo(-16*sc,-10*sc);
-  ctx.lineTo(-10*sc, -7*sc);
-  ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(60,100,180,0.5)';ctx.lineWidth=0.6;ctx.stroke();
-  // Right wing
-  ctx.beginPath();
-  ctx.moveTo( 8*sc,  6*sc);
-  ctx.lineTo(-12*sc, 18*sc);
-  ctx.lineTo(-16*sc, 10*sc);
-  ctx.lineTo(-10*sc,  7*sc);
-  ctx.closePath();ctx.fill();ctx.stroke();
-
-  // Wing leading edge highlight
-  ctx.strokeStyle='rgba(100,150,255,0.4)';ctx.lineWidth=1.0;
-  ctx.beginPath();ctx.moveTo(8*sc,-6*sc);ctx.lineTo(-12*sc,-18*sc);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(8*sc, 6*sc);ctx.lineTo(-12*sc, 18*sc);ctx.stroke();
-
-  // === Engine pods (twin) ===
-  for(const side of [-1,1]){
-    const ey=side*11*sc;
-    const epg=ctx.createLinearGradient(-16*sc,ey-3*sc,-6*sc,ey+3*sc);
-    epg.addColorStop(0,'#0a1430');epg.addColorStop(1,'#162860');
-    ctx.fillStyle=epg;
-    ctx.beginPath();
-    if(ctx.roundRect){ctx.roundRect(-16*sc,ey-3*sc,12*sc,6*sc,2);}
-    else{ctx.rect(-16*sc,ey-3*sc,12*sc,6*sc);}
-    ctx.fill();
-    ctx.strokeStyle='rgba(60,100,180,0.5)';ctx.lineWidth=0.5;ctx.stroke();
-    // Nozzle ring
-    ctx.strokeStyle='rgba(80,120,200,0.7)';ctx.lineWidth=1.2;
-    ctx.beginPath();ctx.ellipse(-16*sc,ey,1.5,3*sc,0,0,Math.PI*2);ctx.stroke();
-    // Pod glow when thrusting
-    if(thrusting){
-      ctx.save();ctx.globalAlpha=0.6+Math.random()*0.3;
-      const pg2=ctx.createRadialGradient(-18*sc,ey,0,-18*sc,ey,8*sc);
-      pg2.addColorStop(0,'rgba(100,160,255,0.8)');pg2.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=pg2;ctx.beginPath();ctx.arc(-18*sc,ey,8*sc,0,Math.PI*2);ctx.fill();
-      ctx.restore();
+  // === NASA probe-style spacecraft (top-down realistic) ===
+  // 右 (+X) = 船首方向。ソーラーパネルは ±Y に展開。
+  {
+    // ── ソーラーパネル（左右対称）──
+    for(const side of[-1,1]){
+      const py=side*16*sc;
+      // パネル本体（ダークブルー太陽電池）
+      const spg=ctx.createLinearGradient(-8*sc,py,8*sc,py+side*14*sc);
+      spg.addColorStop(0,'#0c1830');spg.addColorStop(0.5,'#162848');spg.addColorStop(1,'#0a1428');
+      ctx.fillStyle=spg;
+      ctx.beginPath();ctx.rect(-10*sc,py,22*sc,side*14*sc);ctx.fill();
+      // 電池セルグリッド線
+      ctx.strokeStyle='rgba(80,120,180,0.45)';ctx.lineWidth=0.5;
+      for(let gi=0;gi<4;gi++){
+        const gx=-10*sc+gi*5.5*sc;
+        ctx.beginPath();ctx.moveTo(gx,py);ctx.lineTo(gx,py+side*14*sc);ctx.stroke();
+      }
+      for(let gi=0;gi<3;gi++){
+        const gy=py+side*(gi+1)*3.5*sc;
+        ctx.beginPath();ctx.moveTo(-10*sc,gy);ctx.lineTo(12*sc,gy);ctx.stroke();
+      }
+      // パネル外縁（アルミフレーム）
+      ctx.strokeStyle='rgba(180,200,220,0.6)';ctx.lineWidth=0.8;
+      ctx.strokeRect(-10*sc,py,22*sc,side*14*sc);
+      // パネルのゴールドヒンジ（取付根元）
+      const hg=ctx.createLinearGradient(-3*sc,py,3*sc,py);
+      hg.addColorStop(0,'#7a5a10');hg.addColorStop(0.5,'#c89020');hg.addColorStop(1,'#7a5a10');
+      ctx.fillStyle=hg;ctx.fillRect(-2*sc,py,5*sc,side*2.5*sc);
     }
+
+    // ── バス本体（メインバス）──
+    const bg=ctx.createLinearGradient(-14*sc,-7*sc,20*sc,7*sc);
+    bg.addColorStop(0,'#50606c');bg.addColorStop(0.25,'#9aaabb');
+    bg.addColorStop(0.55,'#d0dce8');bg.addColorStop(0.8,'#a8b8c8');bg.addColorStop(1,'#485860');
+    ctx.save();ctx.shadowBlur=10;ctx.shadowColor='rgba(160,200,240,0.4)';
+    ctx.fillStyle=bg;
+    ctx.beginPath();
+    ctx.moveTo(20*sc,0);ctx.lineTo(16*sc,-7*sc);ctx.lineTo(-14*sc,-7*sc);
+    ctx.lineTo(-18*sc,-3*sc);ctx.lineTo(-18*sc,3*sc);ctx.lineTo(-14*sc,7*sc);ctx.lineTo(16*sc,7*sc);
+    ctx.closePath();ctx.fill();
+    ctx.strokeStyle='rgba(200,220,240,0.5)';ctx.lineWidth=0.7;ctx.stroke();
+    ctx.restore();
+
+    // ── 金色 MLI 断熱ブランケット（中央）──
+    const mg=ctx.createLinearGradient(-4*sc,-6*sc,-4*sc,6*sc);
+    mg.addColorStop(0,'#a07010');mg.addColorStop(0.3,'#c89828');mg.addColorStop(0.7,'#e0b030');mg.addColorStop(1,'#906010');
+    ctx.fillStyle=mg;ctx.fillRect(-4*sc,-6*sc,14*sc,12*sc);
+    // MLI シワ線
+    ctx.strokeStyle='rgba(100,70,10,0.5)';ctx.lineWidth=0.5;
+    for(let i=0;i<4;i++){
+      const lx=-2*sc+i*3*sc;
+      ctx.beginPath();ctx.moveTo(lx,-6*sc);ctx.lineTo(lx+1*sc,6*sc);ctx.stroke();
+    }
+
+    // ── エンジン部（後部）──
+    const eg=ctx.createLinearGradient(-18*sc,-3*sc,-18*sc,3*sc);
+    eg.addColorStop(0,'#303840');eg.addColorStop(0.5,'#606870');eg.addColorStop(1,'#303840');
+    ctx.fillStyle=eg;ctx.fillRect(-20*sc,-3*sc,4*sc,6*sc);
+    ctx.strokeStyle='rgba(140,160,180,0.5)';ctx.lineWidth=0.6;ctx.strokeRect(-20*sc,-3*sc,4*sc,6*sc);
+    // エンジンベル内部（グロー）
+    ctx.save();ctx.shadowBlur=6;ctx.shadowColor='rgba(80,120,200,0.5)';
+    ctx.fillStyle='rgba(40,60,100,0.8)';
+    ctx.beginPath();ctx.ellipse(-20*sc,0,1.5*sc,2.5*sc,0,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+
+    // ── RCS スラスター（角）──
+    const rcsCols=['rgba(160,170,180,0.9)','rgba(100,110,120,0.9)'];
+    for(const[rx,ry] of[[12,-7],[12,7],[-13,-7],[-13,7]]){
+      ctx.fillStyle=rcsCols[0];ctx.fillRect(rx*sc-1.5*sc,ry*sc-1.5*sc,3*sc,3*sc);
+      ctx.strokeStyle='rgba(200,220,240,0.4)';ctx.lineWidth=0.5;ctx.strokeRect(rx*sc-1.5*sc,ry*sc-1.5*sc,3*sc,3*sc);
+    }
+
+    // ── HGA アンテナ（高利得アンテナ・前方）──
+    ctx.save();ctx.shadowBlur=4;ctx.shadowColor='rgba(220,235,255,0.5)';
+    // アンテナブーム
+    ctx.strokeStyle='rgba(180,200,220,0.8)';ctx.lineWidth=0.8;
+    ctx.beginPath();ctx.moveTo(18*sc,0);ctx.lineTo(26*sc,0);ctx.stroke();
+    // パラボラ皿
+    const dishG=ctx.createRadialGradient(27*sc,0,0,27*sc,0,5*sc);
+    dishG.addColorStop(0,'rgba(240,248,255,0.95)');dishG.addColorStop(0.6,'rgba(200,215,230,0.8)');dishG.addColorStop(1,'rgba(160,180,200,0.4)');
+    ctx.fillStyle=dishG;ctx.beginPath();ctx.arc(27*sc,0,4.5*sc,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(180,200,220,0.7)';ctx.lineWidth=0.7;ctx.stroke();
+    // 皿のリブ線
+    ctx.strokeStyle='rgba(140,160,180,0.5)';ctx.lineWidth=0.4;
+    for(const a of[-1,0,1]){
+      ctx.beginPath();ctx.moveTo(27*sc,0);ctx.lineTo(27*sc+Math.cos(a*0.8)*4*sc,Math.sin(a*0.8)*4*sc);ctx.stroke();
+    }
+    ctx.restore();
+
+    // ── センサー類（前方）──
+    ctx.fillStyle='rgba(160,180,200,0.85)';
+    ctx.fillRect(17*sc,-1.5*sc,2.5*sc,3*sc); // 前方センサーボックス
+    ctx.fillStyle='rgba(80,180,255,0.7)';
+    ctx.beginPath();ctx.arc(18.5*sc,0,1.2*sc,0,Math.PI*2);ctx.fill(); // センサーレンズ
+
+    // ── パネルライン（構造リブ）──
+    ctx.strokeStyle='rgba(100,130,160,0.3)';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(-4*sc,-7*sc);ctx.lineTo(-4*sc,7*sc);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(10*sc,-7*sc);ctx.lineTo(10*sc,7*sc);ctx.stroke();
   }
 
-  // === Hull detail lines ===
-  ctx.strokeStyle='rgba(100,150,220,0.25)';ctx.lineWidth=0.6;
-  // Centerline
-  ctx.beginPath();ctx.moveTo(20*sc,0);ctx.lineTo(-14*sc,0);ctx.stroke();
-  // Panel lines
-  ctx.beginPath();ctx.moveTo(10*sc,-4*sc);ctx.lineTo(-8*sc,-5.5*sc);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(10*sc, 4*sc);ctx.lineTo(-8*sc, 5.5*sc);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(-2*sc,-5*sc);ctx.lineTo(-2*sc,-15*sc);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(-2*sc, 5*sc);ctx.lineTo(-2*sc, 15*sc);ctx.stroke();
-
-  // === Cockpit canopy ===
-  ctx.save();
-  ctx.shadowBlur=6;ctx.shadowColor='rgba(150,230,255,0.6)';
-  const cg=ctx.createRadialGradient(12*sc,-1.5*sc,0,10*sc,0,7*sc);
-  cg.addColorStop(0,'rgba(180,235,255,0.95)');
-  cg.addColorStop(0.4,'rgba(60,180,255,0.7)');
-  cg.addColorStop(0.8,'rgba(20,80,180,0.5)');
-  cg.addColorStop(1,'rgba(10,30,100,0.3)');
-  ctx.fillStyle=cg;
-  ctx.beginPath();ctx.ellipse(11*sc,0,7*sc,3.5*sc,0,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='rgba(180,230,255,0.5)';ctx.lineWidth=0.6;ctx.stroke();
-  // canopy reflection glint
-  ctx.fillStyle='rgba(255,255,255,0.35)';
-  ctx.beginPath();ctx.ellipse(13*sc,-1*sc,2.5*sc,1.2*sc,-0.3,0,Math.PI*2);ctx.fill();
-  ctx.restore();
-
-  // === Navigation lights ===
-  const navPulse=0.5+Math.sin(gs.time*0.12)*0.5;
-  // Port (left wing tip) — red
-  ctx.save();ctx.shadowBlur=8;ctx.shadowColor='#ff2222';
-  ctx.fillStyle=`rgba(255,60,60,${0.6+navPulse*0.4})`;
-  ctx.beginPath();ctx.arc(-13*sc,-18*sc,2.2,0,Math.PI*2);ctx.fill();ctx.restore();
-  // Starboard (right wing tip) — green
-  ctx.save();ctx.shadowBlur=8;ctx.shadowColor='#22ff44';
-  ctx.fillStyle=`rgba(40,255,100,${0.6+navPulse*0.4})`;
-  ctx.beginPath();ctx.arc(-13*sc, 18*sc,2.2,0,Math.PI*2);ctx.fill();ctx.restore();
-  // Tail — white strobe
-  if(Math.floor(gs.time/20)%3===0){
-    ctx.save();ctx.shadowBlur=10;ctx.shadowColor='#ffffff';
+  // === Navigation lights (probe style) ===
+  const navPulse=0.5+Math.sin(gs.time*0.14)*0.5;
+  // ソーラーパネル端 — 赤（左）
+  ctx.save();ctx.shadowBlur=6;ctx.shadowColor='#ff2222';
+  ctx.fillStyle=`rgba(255,60,60,${0.5+navPulse*0.5})`;
+  ctx.beginPath();ctx.arc(-8*sc,-27*sc,1.8,0,Math.PI*2);ctx.fill();ctx.restore();
+  // ソーラーパネル端 — 緑（右）
+  ctx.save();ctx.shadowBlur=6;ctx.shadowColor='#22ff44';
+  ctx.fillStyle=`rgba(40,255,100,${0.5+navPulse*0.5})`;
+  ctx.beginPath();ctx.arc(-8*sc,27*sc,1.8,0,Math.PI*2);ctx.fill();ctx.restore();
+  // エンジン後部 — 白ストロボ
+  if(Math.floor(gs.time/22)%4===0){
+    ctx.save();ctx.shadowBlur=8;ctx.shadowColor='#ffffff';
     ctx.fillStyle='rgba(255,255,255,0.9)';
-    ctx.beginPath();ctx.arc(-17*sc,0,1.8,0,Math.PI*2);ctx.fill();ctx.restore();
+    ctx.beginPath();ctx.arc(-19*sc,0,1.5,0,Math.PI*2);ctx.fill();ctx.restore();
   }
 
   ctx.restore();
@@ -1345,7 +1513,7 @@ function drawRelVelocityHUD(){
   ctx.save();
   if(isMobile){
     // コンパクト版: 右上、ドット列の下
-    const pw=150,ph=36,px=W()-pw-8,py=32;
+    const pw=150,ph=36,px=W()-pw-8,py=42;
     ctx.fillStyle='rgba(0,8,22,0.78)';rrect(px,py,pw,ph,5);ctx.fill();
     ctx.strokeStyle=col+'55';ctx.lineWidth=0.8;rrect(px,py,pw,ph,5);ctx.stroke();
     ctx.fillStyle='rgba(100,160,200,0.6)';ctx.font='8px "Courier New",monospace';ctx.textAlign='left';
@@ -1421,23 +1589,41 @@ function drawHUD3p(){
   // ── 左上: ナビゲーション (モバイルはコンパクト) ──
   ctx.save();
   if(isMobile){
-    // コンパクト版: 速度 + HULL + FUEL バーのみ
-    const pw=160,ph=52,px=10,py=10;
-    ctx.fillStyle='rgba(0,8,22,0.78)';rrect(px,py,pw,ph,6);ctx.fill();
-    ctx.strokeStyle='rgba(80,140,220,0.25)';ctx.lineWidth=0.8;rrect(px,py,pw,ph,6);ctx.stroke();
-    ctx.fillStyle='#ddeeff';ctx.font='bold 11px "Courier New",monospace';ctx.textAlign='left';
-    ctx.fillText('SPD '+spd,px+8,py+16);
+    // コンパクト版: SPD + HULL + FUEL
+    const pw=178,ph=70,px=8,py=8;
+    ctx.fillStyle='rgba(0,8,22,0.82)';rrect(px,py,pw,ph,7);ctx.fill();
+    ctx.strokeStyle='rgba(80,140,220,0.3)';ctx.lineWidth=0.8;rrect(px,py,pw,ph,7);ctx.stroke();
+    // Label
+    ctx.fillStyle='rgba(80,140,220,0.65)';ctx.font='8px "Courier New",monospace';ctx.textAlign='left';
+    ctx.fillText('NAVIGATION',px+8,py+13);
+    // SPD
+    ctx.fillStyle='#ddeeff';ctx.font='bold 11px "Courier New",monospace';
+    ctx.fillText('SPD '+spd,px+8,py+28);
+    // Zoom
     ctx.fillStyle='rgba(120,180,220,0.55)';ctx.font='8px "Courier New",monospace';ctx.textAlign='right';
-    ctx.fillText((cam.zoom<0.95||cam.zoom>1.05)?'x'+cam.zoom.toFixed(1):'',px+pw-6,py+16);
+    ctx.fillText((cam.zoom<0.95||cam.zoom>1.05)?'x'+cam.zoom.toFixed(1):'',px+pw-6,py+28);
     ctx.textAlign='left';
+    // HULL bar
     const hc2=ship.health>50?'#00ff88':ship.health>25?'#ffaa00':'#ff3322';
-    ctx.fillStyle='#111828';ctx.fillRect(px+8,py+22,pw-16,7);
-    ctx.fillStyle=hc2;ctx.shadowBlur=4;ctx.shadowColor=hc2;ctx.fillRect(px+8,py+22,(pw-16)*(ship.health/100),7);
-    ctx.shadowBlur=0;
+    const barW=pw-58;
+    ctx.fillStyle='rgba(80,140,220,0.5)';ctx.font='8px "Courier New",monospace';
+    ctx.fillText('HULL',px+8,py+43);
+    ctx.fillStyle='#111828';ctx.fillRect(px+38,py+35,barW,7);
+    ctx.fillStyle=hc2;ctx.shadowBlur=4;ctx.shadowColor=hc2;ctx.fillRect(px+38,py+35,barW*(ship.health/100),7);
+    ctx.shadowBlur=0;ctx.strokeStyle='rgba(80,140,220,0.3)';ctx.lineWidth=0.5;ctx.strokeRect(px+38,py+35,barW,7);
+    ctx.fillStyle='rgba(180,210,240,0.7)';ctx.font='7px "Courier New",monospace';ctx.textAlign='right';
+    ctx.fillText(ship.health+'%',px+pw-4,py+43);
+    ctx.textAlign='left';
+    // FUEL bar
     const fc2=ship.fuel>40?'#44ccff':ship.fuel>20?'#ffaa20':'#ff4422';
-    ctx.fillStyle='rgba(30,60,100,0.5)';ctx.fillRect(px+8,py+34,pw-16,7);
-    ctx.fillStyle=fc2;ctx.fillRect(px+8,py+34,(pw-16)*(ship.fuel/100),7);
-    ctx.strokeStyle='rgba(80,140,220,0.3)';ctx.lineWidth=0.6;ctx.strokeRect(px+8,py+22,pw-16,7);ctx.strokeRect(px+8,py+34,pw-16,7);
+    ctx.fillStyle='rgba(80,140,220,0.5)';ctx.font='8px "Courier New",monospace';
+    ctx.fillText('FUEL',px+8,py+59);
+    ctx.fillStyle='rgba(30,60,100,0.5)';ctx.fillRect(px+38,py+51,barW,7);
+    ctx.fillStyle=fc2;ctx.shadowBlur=fc2==='#ff4422'?4:0;ctx.shadowColor=fc2;ctx.fillRect(px+38,py+51,barW*(ship.fuel/100),7);
+    ctx.shadowBlur=0;ctx.strokeStyle='rgba(80,140,220,0.3)';ctx.lineWidth=0.5;ctx.strokeRect(px+38,py+51,barW,7);
+    ctx.fillStyle='rgba(180,210,240,0.7)';ctx.font='7px "Courier New",monospace';ctx.textAlign='right';
+    ctx.fillText(ship.fuel.toFixed(0)+'%',px+pw-4,py+59);
+    ctx.textAlign='left';
   }else{
     ctx.fillStyle='rgba(0,8,22,0.80)';rrect(12,12,210,128,7);ctx.fill();
     ctx.strokeStyle='rgba(80,140,220,0.28)';ctx.lineWidth=0.8;rrect(12,12,210,128,7);ctx.stroke();
@@ -1502,18 +1688,21 @@ function drawHUD3p(){
 
   // MISSION PROGRESS: モバイルはドットのみ右上に小さく、PCは中央に大きく
   if(isMobile){
-    const dotR=5,dotGap=14,startX=W()-journey.length*dotGap-6,dotY=18;
+    const dotR=6,dotGap=17,totalW=journey.length*dotGap+4,panelX=(W()-totalW)/2,panelY=8;
     ctx.save();
-    ctx.fillStyle='rgba(0,8,22,0.70)';rrect(startX-4,8,journey.length*dotGap+8,20,4);ctx.fill();
+    ctx.fillStyle='rgba(0,8,22,0.78)';rrect(panelX-6,panelY,totalW+12,28,5);ctx.fill();
+    ctx.strokeStyle='rgba(80,140,220,0.25)';ctx.lineWidth=0.7;rrect(panelX-6,panelY,totalW+12,28,5);ctx.stroke();
+    ctx.fillStyle='rgba(80,140,220,0.55)';ctx.font='7px "Courier New",monospace';ctx.textAlign='center';
+    ctx.fillText('RETURN TO EARTH',W()/2,panelY+9);
     for(let j=0;j<journey.length;j++){
-      const i=journey[j],cx=startX+j*dotGap+dotR,cy=dotY;
+      const i=journey[j],dotX=panelX+j*dotGap+dotR,dotY=panelY+20;
       const ck=gs.checks[i],isEarth=i===2;
       ctx.fillStyle=ck?'#00ff88':isEarth?'#4488ff':'#1c2a3a';
-      ctx.shadowBlur=ck?5:isEarth?8:0;ctx.shadowColor=ck?'#00ff88':'#4488ff';
-      ctx.beginPath();ctx.arc(cx,cy,dotR,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.shadowBlur=ck?6:isEarth?10:0;ctx.shadowColor=ck?'#00ff88':'#4488ff';
+      ctx.beginPath();ctx.arc(dotX,dotY,dotR,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
       if(isEarth&&!ck){
-        ctx.strokeStyle='#4488ff';ctx.lineWidth=1;ctx.globalAlpha=0.4+Math.sin(gs.time*0.1)*0.6;
-        ctx.beginPath();ctx.arc(cx,cy,dotR+3,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+        ctx.strokeStyle='#4488ff';ctx.lineWidth=1.2;ctx.globalAlpha=0.4+Math.sin(gs.time*0.1)*0.6;
+        ctx.beginPath();ctx.arc(dotX,dotY,dotR+3,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
       }
     }
     ctx.restore();
@@ -1647,14 +1836,33 @@ function drawCockpitObjects(vpH){
     ag.addColorStop(0,p.glow+'30');ag.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle=ag;ctx.beginPath();ctx.arc(sx,sy,apparent*3.5,0,Math.PI*2);ctx.fill();
     // Planet sphere
-    const sg=ctx.createRadialGradient(sx-apparent*0.3,sy-apparent*0.3,0,sx,sy,apparent);
-    if(p.type==='earth'){sg.addColorStop(0,'#4ab0e8');sg.addColorStop(0.5,'#2b7fc1');sg.addColorStop(1,'#0a2c48');}
-    else if(p.type==='gas'){sg.addColorStop(0,'#d4943a');sg.addColorStop(0.5,'#c8823a');sg.addColorStop(1,'#7a3010');}
-    else if(p.type==='ice'){sg.addColorStop(0,p.col);sg.addColorStop(0.6,p.col+'aa');sg.addColorStop(1,'#000820');}
-    else if(p.type==='saturn'){sg.addColorStop(0,'#ede0a8');sg.addColorStop(0.5,'#e4d090');sg.addColorStop(1,'#7a6020');}
-    else{sg.addColorStop(0,p.col);sg.addColorStop(0.6,p.col+'bb');sg.addColorStop(1,'#050505');}
-    ctx.save();ctx.shadowBlur=8;ctx.shadowColor=p.glow;
-    ctx.fillStyle=sg;ctx.beginPath();ctx.arc(sx,sy,Math.max(2,apparent),0,Math.PI*2);ctx.fill();
+    const _r=Math.max(2,apparent);
+    ctx.save();
+    ctx.beginPath();ctx.arc(sx,sy,_r,0,Math.PI*2);ctx.clip();
+    const _pimg=TEX[p.texKey];
+    if(_pimg&&_r>3){
+      const dw=_r*4,dh=_r*2;
+      const ox=((gs.time*p.rotSpd%1)*dw+dw)%dw;
+      ctx.drawImage(_pimg,sx-_r-ox,sy-_r,dw,dh);
+      ctx.drawImage(_pimg,sx-_r-ox+dw,sy-_r,dw,dh);
+      const _sd=Math.hypot(p.wx,p.wy)||1;
+      const _lx=sx+(-p.wx/_sd)*_r*0.5,_ly=sy+(-p.wy/_sd)*_r*0.5;
+      const _dg=ctx.createRadialGradient(_lx,_ly,0,sx+(p.wx/_sd)*_r*0.3,sy+(p.wy/_sd)*_r*0.3,_r*1.15);
+      _dg.addColorStop(0,'rgba(0,0,0,0)');_dg.addColorStop(0.5,'rgba(0,0,0,0.12)');_dg.addColorStop(1,'rgba(0,0,0,0.74)');
+      ctx.fillStyle=_dg;ctx.fillRect(sx-_r,sy-_r,_r*2,_r*2);
+      const _hg=ctx.createRadialGradient(_lx,_ly,0,_lx,_ly,_r*0.75);
+      _hg.addColorStop(0,'rgba(255,255,255,0.18)');_hg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=_hg;ctx.fillRect(sx-_r,sy-_r,_r*2,_r*2);
+    }else{
+      const sg=ctx.createRadialGradient(sx-_r*0.3,sy-_r*0.3,0,sx,sy,_r);
+      if(p.type==='earth'){sg.addColorStop(0,'#4ab0e8');sg.addColorStop(0.5,'#2b7fc1');sg.addColorStop(1,'#0a2c48');}
+      else if(p.type==='gas'){sg.addColorStop(0,'#d4943a');sg.addColorStop(0.5,'#c8823a');sg.addColorStop(1,'#7a3010');}
+      else if(p.type==='ice'){sg.addColorStop(0,p.col);sg.addColorStop(0.6,p.col+'aa');sg.addColorStop(1,'#000820');}
+      else if(p.type==='saturn'){sg.addColorStop(0,'#ede0a8');sg.addColorStop(0.5,'#e4d090');sg.addColorStop(1,'#7a6020');}
+      else{sg.addColorStop(0,p.col);sg.addColorStop(0.6,p.col+'bb');sg.addColorStop(1,'#050505');}
+      ctx.shadowBlur=8;ctx.shadowColor=p.glow;
+      ctx.fillStyle=sg;ctx.beginPath();ctx.arc(sx,sy,_r,0,Math.PI*2);ctx.fill();
+    }
     ctx.restore();
     // Ring (Saturn)
     if(p.type==='saturn'&&apparent>4){
@@ -1712,7 +1920,22 @@ function drawCockpitObjects(vpH){
       const v=d.verts[i],px=Math.cos(v.a)*apparent*v.rad,py=Math.sin(v.a)*apparent*v.rad;
       i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
     }
-    ctx.closePath();ctx.fillStyle=`hsl(25,10%,${d.lum}%)`;ctx.fill();ctx.restore();
+    ctx.closePath();
+    const tex=TEX[d.texKey];
+    if(tex){
+      ctx.save();ctx.clip();
+      const tw=tex.naturalWidth||tex.width,th=tex.naturalHeight||tex.height;
+      const sc=(apparent*2)/Math.min(tw,th);
+      ctx.drawImage(tex,0,0,tw,th,-apparent,-apparent,tw*sc,th*sc);
+      const sg=ctx.createRadialGradient(-apparent*0.35,-apparent*0.35,apparent*0.05,0,0,apparent);
+      sg.addColorStop(0,'rgba(255,255,255,0.08)');sg.addColorStop(0.6,'rgba(0,0,0,0)');sg.addColorStop(1,'rgba(0,0,0,0.55)');
+      ctx.fillStyle=sg;ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=0.5;ctx.stroke();
+    }else{
+      ctx.fillStyle=`hsl(25,10%,${d.lum}%)`;ctx.fill();
+    }
+    ctx.restore();
   }
 }
 
@@ -1929,6 +2152,49 @@ function drawCompassGauge(x,y,r,headingRad){
   ctx.restore();
 }
 
+function drawCockpitFrame(vpH){
+  const fw=isMobile?32:48;
+  const metal1='#0a1420',metal2='#162238',rim='rgba(60,130,220,0.65)';
+
+  // 上枠
+  const topG=ctx.createLinearGradient(0,0,0,fw);
+  topG.addColorStop(0,metal1);topG.addColorStop(1,metal2);
+  ctx.fillStyle=topG;ctx.fillRect(0,0,W(),fw);
+
+  // 左枠
+  const lG=ctx.createLinearGradient(0,0,fw,0);
+  lG.addColorStop(0,metal1);lG.addColorStop(1,metal2);
+  ctx.fillStyle=lG;ctx.fillRect(0,0,fw,vpH);
+
+  // 右枠
+  const rG=ctx.createLinearGradient(W()-fw,0,W(),0);
+  rG.addColorStop(0,metal2);rG.addColorStop(1,metal1);
+  ctx.fillStyle=rG;ctx.fillRect(W()-fw,0,fw,vpH);
+
+  // 一枚窓の内側リム光
+  ctx.save();ctx.shadowBlur=12;ctx.shadowColor='rgba(60,130,220,0.4)';
+  ctx.strokeStyle=rim;ctx.lineWidth=1.5;
+  ctx.strokeRect(fw+1,fw+1,W()-fw*2-2,vpH-fw-2);
+  ctx.restore();
+
+  // コーナーリベット
+  const bolts=[[fw*0.5,fw*0.5],[W()-fw*0.5,fw*0.5],[fw*0.5,vpH-fw*0.7],[W()-fw*0.5,vpH-fw*0.7],[fw*0.5,vpH*0.45],[W()-fw*0.5,vpH*0.45]];
+  for(const[bx,by]of bolts){
+    ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);
+    ctx.fillStyle='#08121e';ctx.fill();
+    ctx.strokeStyle='#243a58';ctx.lineWidth=0.7;ctx.stroke();
+    ctx.beginPath();ctx.arc(bx-0.7,by-0.7,1,0,Math.PI*2);
+    ctx.fillStyle='rgba(100,160,220,0.35)';ctx.fill();
+  }
+
+  // 構造リブ
+  ctx.strokeStyle='rgba(25,48,78,0.6)';ctx.lineWidth=0.8;
+  [vpH*0.35,vpH*0.65].forEach(y=>{
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(fw,y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(W()-fw,y);ctx.lineTo(W(),y);ctx.stroke();
+  });
+}
+
 function drawCockpitPanel(vpH,panelH){
   const px=0,py=vpH,pw=W(),ph=panelH;
   // Panel background
@@ -2039,7 +2305,8 @@ function drawCockpitView(){
   const panelH=H()-vpH;
 
   // Viewport
-  ctx.fillStyle='#000008';ctx.fillRect(0,0,W(),vpH);
+  if(TEX.space_bg){ctx.drawImage(TEX.space_bg,0,0,W(),vpH);}
+  else{ctx.fillStyle='#000008';ctx.fillRect(0,0,W(),vpH);}
   // clip to viewport
   ctx.save();ctx.beginPath();ctx.rect(0,0,W(),vpH);ctx.clip();
   drawCockpitNebula(vpH);
@@ -2070,6 +2337,7 @@ function drawCockpitView(){
     ctx.fillStyle=bg;ctx.fillRect(0,vpH-60,W(),60);
   }
   drawCockpitHUD(vpH);
+  drawCockpitFrame(vpH);
   if(ship.inv>0&&Math.floor(ship.inv/8)%2===0){
     ctx.fillStyle='rgba(255,30,0,0.12)';ctx.fillRect(0,0,W(),vpH);
   }
@@ -2109,83 +2377,147 @@ function drawEndScreen(win){
 }
 
 // ── ミッションブリーフィング ──────────────────────────────────────────────────
-const BRIEF_LINES=[
-  {t:20,  main:'[ 緊急通信受信 ]',                   sub:'EMERGENCY TRANSMISSION RECEIVED'},
-  {t:60,  main:'コマンダー、聞こえるか？',              sub:'COMMANDER, DO YOU READ?'},
-  {t:105, main:'あなたの船は海王星軌道付近に漂流中',    sub:'VESSEL ADRIFT NEAR NEPTUNE ORBIT'},
-  {t:150, main:'燃料は残り少ない。急いでくれ',          sub:'FUEL IS LOW — ACT QUICKLY'},
-  {t:195, main:'惑星の重力を利用して地球へ帰還せよ',    sub:'USE PLANETARY GRAVITY TO RETURN HOME'},
-  {t:235, main:'訪問順序を厳守すること：',              sub:'VISIT IN ORDER:'},
-  {t:265, main:'海王星→天王星→土星→木星→火星→地球',   sub:'NEPTUNE→URANUS→SATURN→JUPITER→MARS→EARTH'},
-];
+// ── スターウォーズ風クロール ──────────────────────────────────
+const CRAWL_LINES=(()=>{
+  const m=isMobile?0.78:1;
+  const raw=[
+    {text:'EPISODE  I',                  sz:26,bold:true},
+    {text:'',                            sz:12},
+    {text:'RETURN TO EARTH',             sz:36,bold:true},
+    {text:'',                            sz:14},
+    {text:'',                            sz:14},
+    {text:'海王星軌道近傍　西暦2187年',  sz:17},
+    {text:'',                            sz:10},
+    {text:'人類の探査船ヘリオスは',       sz:17},
+    {text:'未知の重力嵐に巻き込まれ',    sz:17},
+    {text:'航行不能となった',             sz:17},
+    {text:'',                            sz:10},
+    {text:'乗組員はただ一人',             sz:17},
+    {text:'燃料は残りわずか',             sz:17},
+    {text:'',                            sz:10},
+    {text:'重力アシストのみが',           sz:17},
+    {text:'唯一の帰還手段',              sz:17},
+    {text:'',                            sz:18},
+    {text:'',                            sz:10},
+    {text:'NEPTUNE → URANUS → SATURN',  sz:15},
+    {text:'JUPITER → MARS → EARTH',     sz:15},
+    {text:'',                            sz:20},
+    {text:'地球への帰還を始めよ...',     sz:22,bold:true},
+    {text:'',sz:12},{text:'',sz:12},{text:'',sz:12},{text:'',sz:12},
+  ];
+  const GAP=1.5;
+  let pos=0;
+  return raw.map(l=>{
+    const o={text:l.text,sz:Math.round(l.sz*m),bold:!!l.bold,pos};
+    pos+=Math.round(l.sz*m)*GAP;
+    return o;
+  });
+})();
+
 function drawBriefing(){
-  // Space background
-  ctx.fillStyle='#000008';ctx.fillRect(0,0,W(),H());
-  // Stars (parallax layer 0 only, static-ish)
+  const t=gs.briefTime;
+
+  // ── 背景: 純黒 + 静止した星
+  ctx.fillStyle='#000000';ctx.fillRect(0,0,W(),H());
   ctx.save();
   for(const s of STARS){
     if(s.layer!==0)continue;
-    const sx=(s.wx-cam.x*0.25)+CX(),sy=(s.wy-cam.y*0.25)+CH();
+    const sx=(s.wx*0.15+CX()),sy=(s.wy*0.15+CH());
     if(sx<0||sx>W()||sy<0||sy>H())continue;
-    ctx.globalAlpha=s.br*0.65;
-    ctx.fillStyle=s.hue===0?'#ffffff':s.hue===1?'#b8ccff':'#fff5cc';
-    ctx.beginPath();ctx.arc(sx,sy,s.sz,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=s.br*0.55;
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();ctx.arc(sx,sy,s.sz*0.8,0,Math.PI*2);ctx.fill();
   }
   ctx.globalAlpha=1;ctx.restore();
-  // Cockpit frame edges
-  const cw=W()*0.10;
-  const lGrad=ctx.createLinearGradient(0,0,cw,0);
-  lGrad.addColorStop(0,'rgba(8,18,50,1)');lGrad.addColorStop(1,'rgba(8,18,50,0)');
-  ctx.fillStyle=lGrad;ctx.fillRect(0,0,cw,H());
-  const rGrad=ctx.createLinearGradient(W()-cw,0,W(),0);
-  rGrad.addColorStop(0,'rgba(8,18,50,0)');rGrad.addColorStop(1,'rgba(8,18,50,1)');
-  ctx.fillStyle=rGrad;ctx.fillRect(W()-cw,0,cw,H());
-  // Bottom vignette
-  const bGrad=ctx.createLinearGradient(0,H()*0.7,0,H());
-  bGrad.addColorStop(0,'rgba(0,0,10,0)');bGrad.addColorStop(1,'rgba(0,0,10,0.7)');
-  ctx.fillStyle=bGrad;ctx.fillRect(0,0,W(),H());
 
-  const t=gs.briefTime;
-  const cx=CX(),cy=CH();
-  // Panel
-  const pw=Math.min(600,W()-60),ph=310;
-  const px=(W()-pw)/2,py=cy-ph/2-10;
-  ctx.fillStyle='rgba(0,5,20,0.88)';rrect(px,py,pw,ph,10);ctx.fill();
+  // ── Phase 1 (t=0..70): "A long time ago..."
+  if(t<70){
+    const a=t<25?t/25:t<50?1:(70-t)/20;
+    ctx.save();ctx.globalAlpha=Math.max(0,a);
+    ctx.fillStyle='#4a9eca';
+    ctx.font=`italic ${isMobile?14:18}px Georgia,serif`;
+    ctx.textAlign='center';ctx.shadowBlur=0;
+    ctx.fillText('A long time ago, in a galaxy far, far away....',CX(),CH());
+    ctx.restore();
+    return;
+  }
+
+  // ── Phase 2 (t=70..115): HELIOS ESCAPE タイトルフラッシュ
+  if(t<115){
+    const p=t-70;
+    const a=p<20?p/20:p<35?1:(45-(p-35))/10;
+    ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,a));
+    const fsz=isMobile?32:48;
+    ctx.font=`bold ${fsz}px 'Courier New',monospace`;
+    ctx.textAlign='center';ctx.shadowBlur=30;ctx.shadowColor='#ffe81f';
+    ctx.fillStyle='#ffe81f';
+    ctx.fillText('HELIOS ESCAPE',CX(),CH()-10);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(255,232,31,0.65)';
+    ctx.font=`${isMobile?11:14}px 'Courier New',monospace`;
+    ctx.fillText('AN INTERPLANETARY RESCUE MISSION',CX(),CH()+22);
+    ctx.restore();
+    return;
+  }
+
+  // ── Phase 3 (t=115+): パネル内スクロールクロール
+  const pw=Math.min(600,W()-60),ph=345;
+  const px=(W()-pw)/2,py=CH()-ph/2-10;
+
+  // パネル背景・枠
+  ctx.fillStyle='rgba(0,5,20,0.90)';rrect(px,py,pw,ph,10);ctx.fill();
   ctx.strokeStyle='rgba(60,120,220,0.55)';ctx.lineWidth=1.5;rrect(px,py,pw,ph,10);ctx.stroke();
-  // Top scan line
   ctx.fillStyle='rgba(60,120,220,0.15)';ctx.fillRect(px,py,pw,2);
-  // Header
+
+  // ヘッダー
   ctx.fillStyle='rgba(60,120,220,0.6)';ctx.font='9px "Courier New",monospace';ctx.textAlign='center';
-  ctx.shadowBlur=0;ctx.fillText('■ EARTH MISSION CONTROL — CLASSIFIED ■',cx,py+18);
+  ctx.fillText('■ EARTH MISSION CONTROL — CLASSIFIED ■',CX(),py+18);
   ctx.strokeStyle='rgba(60,120,220,0.25)';ctx.lineWidth=0.5;
   ctx.beginPath();ctx.moveTo(px+14,py+24);ctx.lineTo(px+pw-14,py+24);ctx.stroke();
-  // Briefing lines
-  let lineY=py+46;
-  for(const ln of BRIEF_LINES){
-    const alpha=Math.min(1,(t-ln.t)/18);
-    if(alpha<=0)break;
+
+  // クロール領域
+  const innerTop=py+30,innerBot=py+ph-36;
+  const CRAWL_START=115,scrollSpd=0.65;
+  const scroll=Math.max(0,(t-CRAWL_START))*scrollSpd;
+
+  // クリップ: パネル内側のみ描画
+  ctx.save();
+  ctx.beginPath();ctx.rect(px+10,innerTop,pw-20,innerBot-innerTop);ctx.clip();
+
+  for(const line of CRAWL_LINES){
+    // screenY: innerBot から scroll で上に押し出す
+    const sy=innerBot-scroll+line.pos;
+    if(sy<innerTop-4||sy>innerBot+4)continue;
+    const fadeTop=Math.min(1,(sy-innerTop)/22);
+    const fadeBot=Math.min(1,(innerBot-sy)/22);
+    const alpha=Math.min(fadeTop,fadeBot);
+    if(alpha<=0)continue;
     ctx.globalAlpha=alpha;
-    ctx.fillStyle='#ddeeff';ctx.font='bold 15px "Courier New",monospace';ctx.textAlign='center';
-    ctx.shadowBlur=6;ctx.shadowColor='rgba(100,180,255,0.5)';
-    ctx.fillText(ln.main,cx,lineY);
-    ctx.shadowBlur=0;
-    ctx.fillStyle='rgba(100,160,220,0.7)';ctx.font='9px "Courier New",monospace';
-    ctx.fillText(ln.sub,cx,lineY+14);
-    lineY+=38;ctx.globalAlpha=1;
+    ctx.fillStyle='#ffe81f';
+    ctx.shadowBlur=line.bold?8:0;ctx.shadowColor='rgba(255,220,0,0.5)';
+    ctx.font=`${line.bold?'bold ':''  }${line.sz}px 'Courier New',monospace`;
+    ctx.textAlign='center';
+    ctx.fillText(line.text,CX(),sy);
   }
-  // CRT scan line effect
-  for(let sy2=py;sy2<py+ph;sy2+=4){
-    ctx.fillStyle='rgba(0,0,0,0.06)';ctx.fillRect(px,sy2,pw,1);
+  ctx.globalAlpha=1;ctx.shadowBlur=0;
+  ctx.restore();
+
+  // CRTスキャンライン
+  for(let sy=py;sy<py+ph;sy+=4){
+    ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(px,sy,pw,1);
   }
-  // Prompt
-  if(t>300){
-    const pulse=0.55+Math.sin(t*0.09)*0.45;
-    ctx.globalAlpha=pulse;
-    ctx.fillStyle='#ffcc44';ctx.font='bold 11px "Courier New",monospace';ctx.textAlign='center';
-    ctx.shadowBlur=8;ctx.shadowColor='#ffcc44';
-    ctx.fillText(isMobile?'タップして出発 / TAP TO LAUNCH':'タップまたはキーを押して出発 / PRESS ANY KEY',cx,py+ph-14);
-    ctx.globalAlpha=1;ctx.shadowBlur=0;
-  }
+
+  // プロンプト（点滅）
+  const pulse=0.5+Math.sin(t*0.08)*0.5;
+  ctx.globalAlpha=pulse*0.9;
+  ctx.fillStyle='#ffcc44';
+  ctx.font=`bold ${isMobile?10:11}px 'Courier New',monospace`;
+  ctx.textAlign='center';ctx.shadowBlur=8;ctx.shadowColor='#ffcc44';
+  ctx.fillText(
+    isMobile?'タップして出発 / TAP TO LAUNCH':'タップまたはキーを押して出発 / PRESS ANY KEY',
+    CX(),py+ph-14
+  );
+  ctx.globalAlpha=1;ctx.shadowBlur=0;
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
@@ -2196,6 +2528,8 @@ function loop(ts){
 
   if(gs.phase==='briefing'){
     gs.briefTime++;
+    // initAudio経由で起動済みの場合は重複しない
+    if(SND.ctx&&!SND.bgmActive&&!_audioJustUnlocked)startBriefingBGM();
   }
   if(gs.phase==='playing')update();
 
@@ -2203,7 +2537,8 @@ function loop(ts){
     drawCockpitView();
   }else{
     // Third-person
-    ctx.fillStyle='#000008';ctx.fillRect(0,0,W(),H());
+    if(TEX.space_bg){ctx.drawImage(TEX.space_bg,0,0,W(),H());}
+    else{ctx.fillStyle='#000008';ctx.fillRect(0,0,W(),H());}
     drawNebula();drawStars3p();drawOrbits3p();drawSun();
     for(let i=0;i<8;i++)drawPlanet(PLANETS[i],i);
     drawDebris3p();drawOrbitPath();drawManeuverNode();drawShip3p();drawPulses3p();drawEscape3p();
