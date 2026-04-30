@@ -507,6 +507,60 @@ function sndWin(){
   });
 }
 
+// ── 無線通信システム (Web Speech API + ラジオスタティック) ─────────────────
+let _txBusy=false;
+const TX_FLAGS={start:false,gravAssist:false,lowFuel:false,checkpoint:false,earthApproach:false,gameOver:false};
+function resetTxFlags(){Object.keys(TX_FLAGS).forEach(k=>TX_FLAGS[k]=false);_txBusy=false;}
+
+function _radioStatic(duration,gain){
+  if(!SND.ctx)return;
+  const ac=SND.ctx,t=ac.currentTime;
+  const n=mkNoise(duration);n.loop=false;
+  const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1800;bp.Q.value=0.9;
+  const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=600;
+  const g=ac.createGain();
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(gain,t+0.04);
+  g.gain.setValueAtTime(gain,t+duration-0.06);
+  g.gain.linearRampToValueAtTime(0,t+duration);
+  n.connect(hp);hp.connect(bp);bp.connect(g);g.connect(SND.master);
+  n.start(t);n.stop(t+duration+0.05);
+}
+
+function playTransmission(text){
+  if(!window.speechSynthesis||_txBusy||SND.muted)return;
+  _txBusy=true;
+  // 冒頭スタティック
+  _radioStatic(0.35,0.22);
+  setTimeout(()=>{
+    const utter=new SpeechSynthesisUtterance(text);
+    utter.lang='en-US';utter.rate=0.88;utter.pitch=0.85;utter.volume=0.92;
+    // 英語の声を選ぶ
+    const voices=window.speechSynthesis.getVoices();
+    const eng=voices.find(v=>v.lang.startsWith('en')&&v.name.toLowerCase().includes('male'))
+             ||voices.find(v=>v.lang.startsWith('en-US'))
+             ||voices.find(v=>v.lang.startsWith('en'))
+             ||null;
+    if(eng)utter.voice=eng;
+    // 話している間も軽いスタティックを重ねる
+    const speechEstMs=(text.length/utter.rate)*62;// rough ms estimate
+    _radioStatic(Math.max(0.3,(speechEstMs/1000)*0.9),0.07);
+    utter.onend=()=>{
+      // 末尾スタティック
+      _radioStatic(0.28,0.20);
+      setTimeout(()=>{_txBusy=false;},400);
+    };
+    utter.onerror=()=>{_txBusy=false;};
+    window.speechSynthesis.speak(utter);
+  },380);
+}
+
+// 声リストをあらかじめロード（ブラウザによっては遅延するため）
+if(window.speechSynthesis){
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.addEventListener('voiceschanged',()=>window.speechSynthesis.getVoices(),{once:true});
+}
+
 // ── サウンドトリガー統括 ───────────────────────────────────
 let _prevThrust=false,_prevBrake=false,_prevWind=false,_gameOverPlayed=false,_winPlayed=false;
 function updateSounds(){
@@ -525,12 +579,19 @@ function updateSounds(){
     SND.lowFuelTimer--;
     if(SND.lowFuelTimer<=0){sndLowFuelBeep();SND.lowFuelTimer=Math.max(35,Math.floor(ship.fuel*9));}
   }else SND.lowFuelTimer=Math.max(SND.lowFuelTimer-1,0);
+  // 燃料30%以下で通信（一度だけ）
+  if(ship.fuel<30&&ship.fuel>0&&!TX_FLAGS.lowFuel){
+    TX_FLAGS.lowFuel=true;
+    setTimeout(()=>playTransmission("Helios, we are reading low fuel reserves. Conserve thrust."),1800);
+  }
 }
 
 function stopAllSounds(){
   sndThrustStop();sndBrakeStop();sndWindStop();
   _prevThrust=false;_prevBrake=false;_prevWind=false;
   _gameOverPlayed=false;_winPlayed=false;
+  resetTxFlags();
+  if(window.speechSynthesis)window.speechSynthesis.cancel();
 }
 
 // ── Input ─────────────────────────────────────────────────────────────────────
@@ -540,7 +601,9 @@ window.addEventListener('keydown',e=>{
   initAudio();
   if(gs.phase==='intro'||gs.phase==='briefing'){
     if(_audioJustUnlocked){_audioJustUnlocked=false;}// 初回: BGM起動のみ、スキップしない
-    else{stopBriefingBGM(false);gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+    else{stopBriefingBGM(false);gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();
+      setTimeout(()=>playTransmission("Helios, this is Earth Mission Control. Begin your return trajectory. We are watching."),2200);
+    }
   }
   if(e.code==='KeyR')resetGame();
   if(e.code==='KeyX'){// X = ミュートトグル
@@ -566,7 +629,9 @@ canvas.addEventListener('click',()=>{
   initAudio();canvas.focus();
   if(gs.phase==='intro'||gs.phase==='briefing'){
     if(_audioJustUnlocked){_audioJustUnlocked=false;}// 初回タップ: BGM起動のみ
-    else{stopBriefingBGM(false);gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();}
+    else{stopBriefingBGM(false);gs.phase='playing';document.getElementById('startWrap').style.display='none';showTouchControls();
+      setTimeout(()=>playTransmission("Helios, this is Earth Mission Control. Begin your return trajectory. We are watching."),2200);
+    }
   }
   if(isMobile&&(gs.phase==='gameover'||gs.phase==='win'))resetGame();
 });
@@ -765,6 +830,7 @@ function update(){
         GA.planet=p.name;GA.x=ship.x;GA.y=ship.y;
         ship.fuel=Math.min(100,ship.fuel+5);
         sndGravityAssist();
+        if(!TX_FLAGS.gravAssist){TX_FLAGS.gravAssist=true;setTimeout(()=>playTransmission("Gravity assist confirmed, Commander. Good flying."),700);}
         break;
       }
     }
@@ -829,7 +895,15 @@ function update(){
         RDV.show=true;RDV.timer=240;RDV.bonus=bonus;
         RDV.msg=rv<0.8?'ORBITAL INSERTION':'FUEL COLLECTED +'+bonus+'%';
         if(rv<0.8)sndOrbitalInsertion();else sndPlanetVisit();
+        if(!TX_FLAGS.checkpoint){TX_FLAGS.checkpoint=true;setTimeout(()=>playTransmission("Checkpoint confirmed. Continue inward."),1400);}
       }
+    }
+  }
+  // 地球接近通信（地球との距離 280AU相当 = 280以内）
+  if(!TX_FLAGS.earthApproach&&gs.journeyIdx===journey.length-1){
+    if(Math.hypot(ship.x-earth.wx,ship.y-earth.wy)<280){
+      TX_FLAGS.earthApproach=true;
+      setTimeout(()=>playTransmission("Commander... Earth is in sight. You are almost home. We are waiting."),800);
     }
   }
   if(RDV.show){RDV.timer--;if(RDV.timer<=0)RDV.show=false;}
@@ -853,7 +927,10 @@ function update(){
   if(ship.health<=0&&gs.phase==='playing'){ship.health=0;gs.phase='gameover';}
   // フェーズ変化サウンド（1回だけ）
   if(gs.phase==='win'&&!_winPlayed){_winPlayed=true;sndWin();stopAllSounds();}
-  if(gs.phase==='gameover'&&!_gameOverPlayed){_gameOverPlayed=true;stopAllSounds();sndGameOver();}
+  if(gs.phase==='gameover'&&!_gameOverPlayed){
+    _gameOverPlayed=true;stopAllSounds();sndGameOver();
+    if(!TX_FLAGS.gameOver){TX_FLAGS.gameOver=true;setTimeout(()=>playTransmission("Helios... we have lost your signal."),1600);}
+  }
   updateSounds();
   gs.time++;
 }
